@@ -211,11 +211,16 @@ function getAll(sql, params = []) {
 
 // INSERT / UPDATE / DELETE
 function run(sql, params = []) {
-  db.run(sql, params);
-  autoSave();
-  // Ambil last insert rowid
+  if (params.length > 0) {
+    db.run(sql, params);
+  } else {
+    db.run(sql);
+  }
+  // Ambil last insert rowid SEBELUM export (export reset state)
   const result = db.exec('SELECT last_insert_rowid() as id');
-  return result[0] ? result[0].values[0][0] : null;
+  const lastId = result[0] ? result[0].values[0][0] : null;
+  autoSave();
+  return lastId;
 }
 
 // ========================================
