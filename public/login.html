@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - AbsenKu</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="login-page">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="logo">🏫</div>
+        <h1>AbsenKu</h1>
+        <p>Aplikasi Absensi Siswa Real-time</p>
+      </div>
+
+      <div id="alertBox" class="alert alert-error" style="display: none;"></div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" class="form-control" placeholder="Masukkan username" required autofocus>
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" class="form-control" placeholder="Masukkan password" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg btn-block" id="btnLogin">
+          🔐 Login
+        </button>
+      </form>
+
+      <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--gray-200);">
+        <p style="font-size: 13px; color: var(--gray-500); text-align: center; margin-bottom: 12px;">Akun Demo:</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <button class="btn btn-outline" onclick="quickLogin('admin', 'admin123')" style="font-size: 12px;">
+            👑 Admin
+          </button>
+          <button class="btn btn-outline" onclick="quickLogin('2024001', 'siswa123')" style="font-size: 12px;">
+            🎓 Siswa (Budi)
+          </button>
+          <button class="btn btn-outline" onclick="quickLogin('ortu1', 'ortu123')" style="font-size: 12px;">
+            👨‍👩‍👧 Ortu (Budi)
+          </button>
+          <button class="btn btn-outline" onclick="quickLogin('2024002', 'siswa123')" style="font-size: 12px;">
+            🎓 Siswa (Siti)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script src="/js/login.js"></script>
+</body>
+</html>

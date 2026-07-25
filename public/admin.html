@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Admin - AbsenKu</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Navbar -->
+    <div id="navbar"></div>
+
+    <div class="container">
+      <!-- Header -->
+      <div class="page-header">
+        <h1>📊 Dashboard Admin</h1>
+        <p id="todayDate"></p>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card">
+          <div class="stat-icon blue">👥</div>
+          <div class="stat-info">
+            <h3 id="statTotal">-</h3>
+            <p>Total Siswa</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">✅</div>
+          <div class="stat-info">
+            <h3 id="statHadir">-</h3>
+            <p>Hadir Hari Ini</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon yellow">🏠</div>
+          <div class="stat-info">
+            <h3 id="statPulang">-</h3>
+            <p>Sudah Pulang</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon red">⏳</div>
+          <div class="stat-info">
+            <h3 id="statBelum">-</h3>
+            <p>Belum Hadir</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Navigation -->
+      <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+        <button class="btn btn-primary" onclick="showTab('attendance')" id="tabAttendance">📋 Absensi Hari Ini</button>
+        <button class="btn btn-outline" onclick="showTab('students')" id="tabStudents">👥 Data Siswa</button>
+        <button class="btn btn-outline" onclick="showTab('addStudent')" id="tabAddStudent">➕ Tambah Siswa</button>
+      </div>
+
+      <!-- Tab: Attendance Today -->
+      <div id="contentAttendance" class="card">
+        <div class="card-header">
+          <h2>📋 Daftar Absensi Hari Ini</h2>
+          <button class="btn btn-outline" onclick="loadDashboard()">🔄 Refresh</button>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>NIS</th>
+                  <th>Nama</th>
+                  <th>Kelas</th>
+                  <th>Jam Masuk</th>
+                  <th>Foto Masuk</th>
+                  <th>Jam Pulang</th>
+                  <th>Foto Pulang</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="attendanceTable">
+                <tr>
+                  <td colspan="8" class="loading">
+                    <div class="spinner"></div>
+                    Memuat data...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Students List -->
+      <div id="contentStudents" class="card" style="display: none;">
+        <div class="card-header">
+          <h2>👥 Daftar Siswa</h2>
+          <button class="btn btn-outline" onclick="loadStudents()">🔄 Refresh</button>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>NIS</th>
+                  <th>Nama</th>
+                  <th>Kelas</th>
+                  <th>Username</th>
+                  <th>Orang Tua</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="studentsTable">
+                <tr>
+                  <td colspan="6" class="loading">
+                    <div class="spinner"></div>
+                    Memuat data...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Add Student -->
+      <div id="contentAddStudent" class="card" style="display: none;">
+        <div class="card-header">
+          <h2>➕ Tambah Siswa Baru</h2>
+        </div>
+        <div class="card-body">
+          <div id="addStudentAlert" class="alert" style="display: none;"></div>
+          <form id="addStudentForm">
+            <h3 style="margin-bottom: 16px; font-size: 16px; color: var(--gray-700);">📋 Data Siswa</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+              <div class="form-group">
+                <label>NIS</label>
+                <input type="text" id="newNis" class="form-control" placeholder="Nomor Induk Siswa" required>
+              </div>
+              <div class="form-group">
+                <label>Nama Lengkap</label>
+                <input type="text" id="newName" class="form-control" placeholder="Nama siswa" required>
+              </div>
+              <div class="form-group">
+                <label>Kelas</label>
+                <input type="text" id="newClass" class="form-control" placeholder="Contoh: 5A" required>
+              </div>
+              <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="newUsername" class="form-control" placeholder="Username untuk login" required>
+              </div>
+              <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="newPassword" class="form-control" placeholder="Password" required>
+              </div>
+            </div>
+
+            <h3 style="margin: 24px 0 16px; font-size: 16px; color: var(--gray-700);">👨‍👩‍👧 Data Orang Tua (Opsional)</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+              <div class="form-group">
+                <label>Nama Orang Tua</label>
+                <input type="text" id="newParentName" class="form-control" placeholder="Nama orang tua">
+              </div>
+              <div class="form-group">
+                <label>Username Orang Tua</label>
+                <input type="text" id="newParentUsername" class="form-control" placeholder="Username orang tua">
+              </div>
+              <div class="form-group">
+                <label>Password Orang Tua</label>
+                <input type="password" id="newParentPassword" class="form-control" placeholder="Password orang tua">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-success btn-lg" style="margin-top: 8px;">
+              ✅ Simpan Siswa
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>

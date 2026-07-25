@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Orang Tua - AbsenKu</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .parent-container {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .connection-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+    .connection-status.connected {
+      background: var(--success-bg);
+      color: #065F46;
+    }
+    .connection-status.disconnected {
+      background: var(--danger-bg);
+      color: #991B1B;
+    }
+    .pulse-ring {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--success);
+      position: relative;
+    }
+    .pulse-ring::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 2px solid var(--success);
+      animation: pulseRing 1.5s infinite;
+    }
+    @keyframes pulseRing {
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(1.8); opacity: 0; }
+    }
+    .notif-sound-btn {
+      background: none;
+      border: 1px solid var(--gray-300);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--gray-600);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="navbar"></div>
+
+    <div class="container">
+      <div class="parent-container">
+        <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <h1>👨‍👩‍👧 Dashboard Orang Tua</h1>
+            <p id="todayDate"></p>
+          </div>
+          <div>
+            <span class="connection-status disconnected" id="connectionStatus">
+              <span id="connDot"></span> Menghubungkan...
+            </span>
+          </div>
+        </div>
+
+        <!-- Status Anak Hari Ini -->
+        <div id="childrenStatus">
+          <div class="loading">
+            <div class="spinner"></div>
+            Memuat data anak...
+          </div>
+        </div>
+
+        <!-- Notifikasi Real-time -->
+        <div class="card" style="margin-top:20px;">
+          <div class="card-header">
+            <h2>🔔 Notifikasi Terbaru</h2>
+            <span style="font-size:12px;color:var(--gray-500);">Update otomatis saat anak absen</span>
+          </div>
+          <div class="card-body" id="notificationList">
+            <div class="loading">
+              <div class="spinner"></div>
+              Memuat notifikasi...
+            </div>
+          </div>
+        </div>
+
+        <!-- Riwayat per Anak -->
+        <div id="historySection" style="margin-top:20px;display:none;">
+          <div class="card">
+            <div class="card-header">
+              <h2 id="historyTitle">📅 Riwayat Absensi</h2>
+              <select class="form-control" style="width:auto;" id="childSelect" onchange="loadChildHistory()">
+              </select>
+            </div>
+            <div class="card-body">
+              <!-- Stats -->
+              <div class="stats-grid" id="historyStats" style="margin-bottom:16px;"></div>
+              <!-- Table -->
+              <div class="table-responsive">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Tanggal</th>
+                      <th>Masuk</th>
+                      <th>Pulang</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="historyTable">
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/parent.js"></script>
+</body>
+</html>
