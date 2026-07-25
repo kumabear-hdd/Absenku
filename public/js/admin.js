@@ -160,6 +160,9 @@ document.getElementById('addStudentForm').addEventListener('submit', async (e) =
     // Reset form
     document.getElementById('addStudentForm').reset();
 
+    // Refresh data otomatis
+    loadDashboard();
+
     setTimeout(() => {
       alertBox.style.display = 'none';
     }, 3000);
