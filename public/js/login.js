@@ -50,12 +50,6 @@ async function doLogin() {
   }
 }
 
-function quickLogin(username, password) {
-  document.getElementById('username').value = username;
-  document.getElementById('password').value = password;
-  doLogin();
-}
-
 function redirectByRole(role) {
   switch (role) {
     case 'admin':

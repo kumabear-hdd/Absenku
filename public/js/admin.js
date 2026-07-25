@@ -187,3 +187,21 @@ async function deleteStudent(id, name) {
     alert('Gagal menghapus: ' + error.message);
   }
 }
+
+// Reset database
+async function resetDatabase() {
+  const confirm1 = confirm('⚠️ PERINGATAN!\n\nIni akan MENGHAPUS SEMUA data siswa, orang tua, dan absensi.\nData admin tetap dipertahankan.\n\nLanjutkan?');
+  if (!confirm1) return;
+
+  const confirm2 = confirm('Apakah Anda YAKIN? Data yang dihapus TIDAK bisa dikembalikan.');
+  if (!confirm2) return;
+
+  try {
+    const data = await apiPost('/api/admin/reset', {});
+    alert('✅ ' + data.message);
+    loadDashboard();
+    loadStudents();
+  } catch (error) {
+    alert('❌ Gagal reset: ' + error.message);
+  }
+}

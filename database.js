@@ -233,5 +233,6 @@ module.exports = {
   getAll,
   run,
   saveDatabase,
+  autoSave,
   getDb: () => db
 };

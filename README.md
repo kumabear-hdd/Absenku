@@ -54,17 +54,20 @@ npm start
 
 ---
 
-## 🗑️ Cara Reset Database (Hapus Semua Data Absensi)
+## 🗑️ Cara Reset Database
 
-Jika ingin menghapus semua data absensi dan mulai dari awal:
-
+### Local (Komputer Sendiri)
 ```bash
 cd "F:\App absen"
 del absenku.db
 npm start
 ```
 
-Database baru akan otomatis dibuat dengan data demo.
+### Railway (Online)
+1. Login sebagai **Admin** di Railway URL
+2. Klik tombol **🗑️ Reset Database** di Dashboard Admin
+3. Konfirmasi 2x (data siswa & absensi akan dihapus, akun admin tetap ada)
+4. Tambah data siswa baru melalui tab **➕ Tambah Siswa**
 
 ---
 
