@@ -99,6 +99,10 @@ function prependNotification(data) {
   const emptyState = container.querySelector('.empty-state');
   if (emptyState) emptyState.remove();
 
+  const locationLink = data.lat && data.lng
+    ? `<a href="https://maps.google.com/?q=${data.lat},${data.lng}" target="_blank" style="font-size:12px;color:var(--primary);">📍 Lihat Lokasi di Maps</a>`
+    : '';
+
   const notifHtml = `
     <div class="notification-card new">
       ${data.photo ? `<img class="notif-photo" src="${data.photo}" alt="Foto">` : '<div class="notif-photo" style="display:flex;align-items:center;justify-content:center;font-size:24px;">📸</div>'}
@@ -108,7 +112,8 @@ function prependNotification(data) {
             ${data.type === 'check_in' ? '🏫 Masuk' : '🏠 Pulang'}
           </span>
         </div>
-        <div class="notif-message">${data.message}</div>
+        <div class="notif-message">${data.message.replace(/📍.*/, '').trim()}</div>
+        <div style="margin-top:4px;">${locationLink}</div>
         <div class="notif-time">🕐 ${data.time} • Baru saja</div>
       </div>
     </div>
@@ -147,6 +152,10 @@ async function loadChildrenStatus() {
       const pulangTime = a ? (a.check_out_time || null) : null;
       const masukPhoto = a && a.check_in_photo ? a.check_in_photo : null;
       const pulangPhoto = a && a.check_out_photo ? a.check_out_photo : null;
+      const masukLat = a ? a.check_in_lat : null;
+      const masukLng = a ? a.check_in_lng : null;
+      const pulangLat = a ? a.check_out_lat : null;
+      const pulangLng = a ? a.check_out_lng : null;
       const status = a ? a.status : null;
 
       return `
@@ -165,7 +174,8 @@ async function loadChildrenStatus() {
               <div class="status-label">🏫 Masuk</div>
               ${masukTime
                 ? `<div class="status-time">${masukTime}</div>
-                   ${masukPhoto ? `<img class="status-photo" src="${masukPhoto}" alt="Foto masuk">` : ''}`
+                   ${masukPhoto ? `<img class="status-photo" src="${masukPhoto}" alt="Foto masuk">` : ''}
+                   ${masukLat && masukLng ? `<a href="https://maps.google.com/?q=${masukLat},${masukLng}" target="_blank" style="font-size:11px;color:var(--primary);display:block;margin-top:4px;">📍 Lihat Lokasi</a>` : ''}`
                 : `<div class="status-time">Belum absen</div>`
               }
             </div>
@@ -173,7 +183,8 @@ async function loadChildrenStatus() {
               <div class="status-label">🏠 Pulang</div>
               ${pulangTime
                 ? `<div class="status-time">${pulangTime}</div>
-                   ${pulangPhoto ? `<img class="status-photo" src="${pulangPhoto}" alt="Foto pulang">` : ''}`
+                   ${pulangPhoto ? `<img class="status-photo" src="${pulangPhoto}" alt="Foto pulang">` : ''}
+                   ${pulangLat && pulangLng ? `<a href="https://maps.google.com/?q=${pulangLat},${pulangLng}" target="_blank" style="font-size:11px;color:var(--primary);display:block;margin-top:4px;">📍 Lihat Lokasi</a>` : ''}`
                 : `<div class="status-time">Belum pulang</div>`
               }
             </div>
@@ -206,21 +217,29 @@ async function loadNotifications() {
       return;
     }
 
-    container.innerHTML = data.notifications.map(n => `
-      <div class="notification-card">
-        ${n.photo ? `<img class="notif-photo" src="${n.photo}" alt="Foto">` : '<div class="notif-photo" style="display:flex;align-items:center;justify-content:center;font-size:24px;">📸</div>'}
-        <div class="notif-content">
-          <div class="notif-title">
-            <span class="notif-type ${n.type === 'check_in' ? 'check-in' : 'check-out'}">
-              ${n.type === 'check_in' ? '🏫 Masuk' : '🏠 Pulang'}
-            </span>
-            <span style="margin-left:8px;font-weight:500;">${n.student_name}</span>
+    container.innerHTML = data.notifications.map(n => {
+      // Extract location link from message if exists
+      const mapsMatch = n.message.match(/(https:\/\/maps\.google\.com\/\?q=[\d.,]+)/);
+      const mapsLink = mapsMatch ? mapsMatch[1] : null;
+      const cleanMessage = n.message.replace(/📍.*/, '').trim();
+
+      return `
+        <div class="notification-card">
+          ${n.photo ? `<img class="notif-photo" src="${n.photo}" alt="Foto">` : '<div class="notif-photo" style="display:flex;align-items:center;justify-content:center;font-size:24px;">📸</div>'}
+          <div class="notif-content">
+            <div class="notif-title">
+              <span class="notif-type ${n.type === 'check_in' ? 'check-in' : 'check-out'}">
+                ${n.type === 'check_in' ? '🏫 Masuk' : '🏠 Pulang'}
+              </span>
+              <span style="margin-left:8px;font-weight:500;">${n.student_name}</span>
+            </div>
+            <div class="notif-message">${cleanMessage}</div>
+            ${mapsLink ? `<a href="${mapsLink}" target="_blank" style="font-size:12px;color:var(--primary);display:block;margin-top:4px;">📍 Lihat Lokasi di Maps</a>` : ''}
+            <div class="notif-time">🕐 ${n.time}</div>
           </div>
-          <div class="notif-message">${n.message}</div>
-          <div class="notif-time">🕐 ${n.time}</div>
         </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
   } catch (error) {
     console.error('Load notifications error:', error);

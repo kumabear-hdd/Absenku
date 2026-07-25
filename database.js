@@ -94,8 +94,12 @@ function createTables() {
       date TEXT NOT NULL,
       check_in_time TEXT,
       check_in_photo TEXT,
+      check_in_lat REAL,
+      check_in_lng REAL,
       check_out_time TEXT,
       check_out_photo TEXT,
+      check_out_lat REAL,
+      check_out_lng REAL,
       status TEXT DEFAULT 'hadir' CHECK(status IN ('hadir', 'terlambat', 'izin', 'sakit', 'alpha')),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (student_id) REFERENCES students(id)

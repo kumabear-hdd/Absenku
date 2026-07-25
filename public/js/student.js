@@ -5,6 +5,8 @@
 let currentUser = null;
 let stream = null;
 let capturedBlob = null;
+let currentLat = null;
+let currentLng = null;
 
 // Init
 (async () => {
@@ -172,6 +174,44 @@ function updateButtonState() {
   });
 }
 
+// ========================================
+// LOKASI GPS
+// ========================================
+
+function getLokasi() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Browser tidak mendukung GPS'));
+      return;
+    }
+
+    showAlert('📍 Mengambil lokasi...', 'info');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        currentLat = position.coords.latitude;
+        currentLng = position.coords.longitude;
+        console.log('📍 Lokasi:', currentLat, currentLng);
+        resolve({ lat: currentLat, lng: currentLng });
+      },
+      (error) => {
+        console.error('GPS error:', error);
+        // Lanjut tanpa lokasi jika user menolak
+        resolve({ lat: null, lng: null });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
+      }
+    );
+  });
+}
+
+// ========================================
+// ABSEN MASUK
+// ========================================
+
 async function doCheckin() {
   if (!capturedBlob) {
     showAlert('Ambil foto terlebih dahulu!', 'error');
@@ -180,11 +220,18 @@ async function doCheckin() {
 
   const btn = document.getElementById('btnCheckin');
   btn.disabled = true;
-  btn.textContent = '⏳ Memproses...';
+  btn.textContent = '⏳ Mengambil lokasi...';
 
   try {
+    // Ambil lokasi dulu
+    const lokasi = await getLokasi();
+
+    btn.textContent = '⏳ Mengirim...';
+
     const formData = new FormData();
     formData.append('photo', capturedBlob, 'selfie.jpg');
+    if (lokasi.lat) formData.append('lat', lokasi.lat);
+    if (lokasi.lng) formData.append('lng', lokasi.lng);
 
     const data = await apiPostForm('/api/attendance/checkin', formData);
 
@@ -211,11 +258,18 @@ async function doCheckout() {
 
   const btn = document.getElementById('btnCheckout');
   btn.disabled = true;
-  btn.textContent = '⏳ Memproses...';
+  btn.textContent = '⏳ Mengambil lokasi...';
 
   try {
+    // Ambil lokasi dulu
+    const lokasi = await getLokasi();
+
+    btn.textContent = '⏳ Mengirim...';
+
     const formData = new FormData();
     formData.append('photo', capturedBlob, 'selfie.jpg');
+    if (lokasi.lat) formData.append('lat', lokasi.lat);
+    if (lokasi.lng) formData.append('lng', lokasi.lng);
 
     const data = await apiPostForm('/api/attendance/checkout', formData);
 

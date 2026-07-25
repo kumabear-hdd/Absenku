@@ -179,6 +179,8 @@ app.post('/api/attendance/checkin', requireRole('siswa'), upload.single('photo')
     const today = new Date().toISOString().split('T')[0];
     const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
     const photoPath = req.file ? `/uploads/photos/${req.file.filename}` : null;
+    const lat = req.body.lat ? parseFloat(req.body.lat) : null;
+    const lng = req.body.lng ? parseFloat(req.body.lng) : null;
 
     const existing = getOne('SELECT * FROM attendances WHERE student_id = ? AND date = ?', [student.id, today]);
 
@@ -191,12 +193,13 @@ app.post('/api/attendance/checkin', requireRole('siswa'), upload.single('photo')
     const status = (hour > 7 || (hour === 7 && minute > 30)) ? 'terlambat' : 'hadir';
 
     if (existing) {
-      run('UPDATE attendances SET check_in_time = ?, check_in_photo = ?, status = ? WHERE id = ?', [now, photoPath, status, existing.id]);
+      run('UPDATE attendances SET check_in_time = ?, check_in_photo = ?, check_in_lat = ?, check_in_lng = ?, status = ? WHERE id = ?', [now, photoPath, lat, lng, status, existing.id]);
     } else {
-      run('INSERT INTO attendances (student_id, date, check_in_time, check_in_photo, status) VALUES (?, ?, ?, ?, ?)', [student.id, today, now, photoPath, status]);
+      run('INSERT INTO attendances (student_id, date, check_in_time, check_in_photo, check_in_lat, check_in_lng, status) VALUES (?, ?, ?, ?, ?, ?, ?)', [student.id, today, now, photoPath, lat, lng, status]);
     }
 
-    const message = `${student.name} sudah sampai di sekolah pukul ${now}`;
+    const locationText = lat && lng ? ` 📍 https://maps.google.com/?q=${lat},${lng}` : '';
+    const message = `${student.name} sudah sampai di sekolah pukul ${now}${locationText}`;
     run('INSERT INTO notifications (parent_id, student_id, type, message, photo, time) VALUES (?, ?, ?, ?, ?, ?)', [student.parent_id, student.id, 'check_in', message, photoPath, now]);
 
     notifyParent(student.parent_id, {
@@ -207,13 +210,15 @@ app.post('/api/attendance/checkin', requireRole('siswa'), upload.single('photo')
       photo: photoPath,
       time: now,
       status,
+      lat,
+      lng,
       timestamp: new Date().toISOString()
     });
 
     res.json({
       success: true,
       message: `Absen masuk berhasil pukul ${now}`,
-      data: { check_in_time: now, photo: photoPath, status }
+      data: { check_in_time: now, photo: photoPath, status, lat, lng }
     });
 
   } catch (error) {
@@ -234,6 +239,8 @@ app.post('/api/attendance/checkout', requireRole('siswa'), upload.single('photo'
     const today = new Date().toISOString().split('T')[0];
     const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
     const photoPath = req.file ? `/uploads/photos/${req.file.filename}` : null;
+    const lat = req.body.lat ? parseFloat(req.body.lat) : null;
+    const lng = req.body.lng ? parseFloat(req.body.lng) : null;
 
     const existing = getOne('SELECT * FROM attendances WHERE student_id = ? AND date = ?', [student.id, today]);
 
@@ -245,9 +252,10 @@ app.post('/api/attendance/checkout', requireRole('siswa'), upload.single('photo'
       return res.status(400).json({ error: 'Anda sudah absen pulang hari ini' });
     }
 
-    run('UPDATE attendances SET check_out_time = ?, check_out_photo = ? WHERE id = ?', [now, photoPath, existing.id]);
+    run('UPDATE attendances SET check_out_time = ?, check_out_photo = ?, check_out_lat = ?, check_out_lng = ? WHERE id = ?', [now, photoPath, lat, lng, existing.id]);
 
-    const message = `${student.name} sudah pulang dari sekolah pukul ${now}`;
+    const locationText = lat && lng ? ` 📍 https://maps.google.com/?q=${lat},${lng}` : '';
+    const message = `${student.name} sudah pulang dari sekolah pukul ${now}${locationText}`;
     run('INSERT INTO notifications (parent_id, student_id, type, message, photo, time) VALUES (?, ?, ?, ?, ?, ?)', [student.parent_id, student.id, 'check_out', message, photoPath, now]);
 
     notifyParent(student.parent_id, {
@@ -257,13 +265,15 @@ app.post('/api/attendance/checkout', requireRole('siswa'), upload.single('photo'
       message,
       photo: photoPath,
       time: now,
+      lat,
+      lng,
       timestamp: new Date().toISOString()
     });
 
     res.json({
       success: true,
       message: `Absen pulang berhasil pukul ${now}`,
-      data: { check_out_time: now, photo: photoPath }
+      data: { check_out_time: now, photo: photoPath, lat, lng }
     });
 
   } catch (error) {
