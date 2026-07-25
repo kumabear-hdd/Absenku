@@ -7,7 +7,7 @@ const multer = require('multer');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const { initDatabase, getOne, getAll, run, autoSave } = require('./database');
+const { initDatabase, getOne, getAll, run } = require('./database');
 
 const app = express();
 const server = http.createServer(app);
@@ -473,13 +473,11 @@ app.get('/api/admin/parents', requireRole('admin'), (req, res) => {
 // POST /api/admin/reset - Reset database (hapus semua data)
 app.post('/api/admin/reset', requireRole('admin'), (req, res) => {
   try {
-    const dbPath = path.join(__dirname, 'absenku.db');
-
-    // Hapus semua data dari tabel
-    db.run('DELETE FROM notifications');
-    db.run('DELETE FROM attendances');
-    db.run('DELETE FROM students');
-    db.run('DELETE FROM users WHERE role != ?', ['admin']); // Pertahankan admin
+    // Hapus semua data dari tabel (kecuali admin)
+    run('DELETE FROM notifications');
+    run('DELETE FROM attendances');
+    run('DELETE FROM students');
+    run('DELETE FROM users WHERE role != ?', ['admin']);
 
     // Hapus foto
     const photosDir = path.join(__dirname, 'uploads', 'photos');
@@ -491,8 +489,6 @@ app.post('/api/admin/reset', requireRole('admin'), (req, res) => {
         }
       });
     }
-
-    autoSave();
 
     res.json({ success: true, message: 'Database berhasil di-reset. Silakan tambah data siswa baru.' });
   } catch (error) {
