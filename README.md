@@ -21,21 +21,79 @@ Aplikasi absensi siswa dengan foto & notifikasi real-time untuk orang tua.
 | Camera | WebRTC (browser native) |
 | Auth | Session + bcrypt |
 
-## 🚀 Cara Install
+## 🚀 Cara Install & Jalankan
 
+### 1. Clone Repository
 ```bash
-# Clone repository
-git clone https://github.com/USERNAME/Absenku.git
+git clone https://github.com/kumabear-hdd/Absenku.git
 cd Absenku
+```
 
-# Install dependencies
+### 2. Install Dependencies
+```bash
 npm install
+```
 
-# Jalankan server
+### 3. Jalankan Server
+```bash
 npm start
 ```
 
 Server berjalan di **http://localhost:3000**
+
+---
+
+## 🔄 Cara Restart Server
+
+Jika server sudah dimatikan, cara menjalankan ulang:
+
+```bash
+cd "F:\App absen"
+npm start
+```
+
+---
+
+## 🗑️ Cara Reset Database (Hapus Semua Data Absensi)
+
+Jika ingin menghapus semua data absensi dan mulai dari awal:
+
+```bash
+cd "F:\App absen"
+del absenku.db
+npm start
+```
+
+Database baru akan otomatis dibuat dengan data demo.
+
+---
+
+## ⚠️ Troubleshooting
+
+### Port 3000 Sudah Dipakai
+```bash
+# Cari proses yang pakai port 3000
+netstat -ano | findstr :3000
+
+# Matikan prosesnya (ganti <PID> dengan angka yang muncul)
+taskkill /F /PID <PID>
+
+# Jalankan lagi
+npm start
+```
+
+### Node.js Belum Terinstall
+Download & install Node.js dari: https://nodejs.org
+
+### npm install Gagal
+```bash
+# Hapus folder node_modules dan install ulang
+rmdir /s /q node_modules
+del package-lock.json
+npm install
+```
+
+---
 
 ## 👤 Akun Demo
 
@@ -46,6 +104,8 @@ Server berjalan di **http://localhost:3000**
 | Siswa (Siti) | `2024002` | `siswa123` |
 | Orang Tua (Budi) | `ortu1` | `ortu123` |
 | Orang Tua (Siti) | `ortu2` | `ortu123` |
+
+---
 
 ## 📱 Alur Penggunaan
 
@@ -62,6 +122,8 @@ Server berjalan di **http://localhost:3000**
 1. Login → Dashboard statistik
 2. Kelola data siswa & orang tua
 3. Lihat rekap absensi
+
+---
 
 ## 📁 Struktur Project
 
@@ -83,6 +145,8 @@ Server berjalan di **http://localhost:3000**
 │       ├── student.js
 │       └── parent.js
 ```
+
+---
 
 ## 📝 License
 
