@@ -183,6 +183,7 @@ async function deleteStudent(id, name) {
   try {
     await apiDelete(`/api/admin/students/${id}`);
     loadStudents();
+    loadDashboard(); // Refresh stats juga
   } catch (error) {
     alert('Gagal menghapus: ' + error.message);
   }
