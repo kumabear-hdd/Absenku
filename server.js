@@ -9,6 +9,37 @@ const path = require('path');
 const fs = require('fs');
 const { initDatabase, getOne, getAll, run } = require('./database');
 
+// ========================================
+// TIMEZONE HELPER - WIB (UTC+7)
+// ========================================
+function getNowWIB() {
+  const now = new Date();
+  // Tambah 7 jam untuk WIB
+  const wib = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+  return wib;
+}
+
+function getTodayWIB() {
+  const wib = getNowWIB();
+  return wib.toISOString().split('T')[0];
+}
+
+function getTimeWIB() {
+  const wib = getNowWIB();
+  const hours = String(wib.getUTCHours()).padStart(2, '0');
+  const minutes = String(wib.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(wib.getUTCSeconds()).padStart(2, '0');
+  return `${hours}:${minutes}:${seconds}`;
+}
+
+function getHourWIB() {
+  return getNowWIB().getUTCHours();
+}
+
+function getMinuteWIB() {
+  return getNowWIB().getUTCMinutes();
+}
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
@@ -176,8 +207,8 @@ app.post('/api/attendance/checkin', requireRole('siswa'), upload.single('photo')
       return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
     }
 
-    const today = new Date().toISOString().split('T')[0];
-    const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    const today = getTodayWIB();
+    const now = getTimeWIB();
     const photoPath = req.file ? `/uploads/photos/${req.file.filename}` : null;
     const lat = req.body.lat ? parseFloat(req.body.lat) : null;
     const lng = req.body.lng ? parseFloat(req.body.lng) : null;
@@ -188,8 +219,8 @@ app.post('/api/attendance/checkin', requireRole('siswa'), upload.single('photo')
       return res.status(400).json({ error: 'Anda sudah absen masuk hari ini' });
     }
 
-    const hour = new Date().getHours();
-    const minute = new Date().getMinutes();
+    const hour = getHourWIB();
+    const minute = getMinuteWIB();
     const status = (hour > 7 || (hour === 7 && minute > 30)) ? 'terlambat' : 'hadir';
 
     if (existing) {
@@ -236,8 +267,8 @@ app.post('/api/attendance/checkout', requireRole('siswa'), upload.single('photo'
       return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
     }
 
-    const today = new Date().toISOString().split('T')[0];
-    const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    const today = getTodayWIB();
+    const now = getTimeWIB();
     const photoPath = req.file ? `/uploads/photos/${req.file.filename}` : null;
     const lat = req.body.lat ? parseFloat(req.body.lat) : null;
     const lng = req.body.lng ? parseFloat(req.body.lng) : null;
@@ -290,7 +321,7 @@ app.get('/api/attendance/today', requireRole('siswa'), (req, res) => {
     return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayWIB();
   const attendance = getOne('SELECT * FROM attendances WHERE student_id = ? AND date = ?', [student.id, today]);
 
   res.json({ attendance: attendance || null });
@@ -320,7 +351,7 @@ app.get('/api/parent/children', requireRole('ortu'), (req, res) => {
 
 app.get('/api/parent/today', requireRole('ortu'), (req, res) => {
   const parentId = req.session.user.id;
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayWIB();
 
   const children = getAll('SELECT * FROM students WHERE parent_id = ?', [parentId]);
 
@@ -379,7 +410,7 @@ app.get('/api/parent/history/:studentId', requireRole('ortu'), (req, res) => {
 // ========================================
 
 app.get('/api/admin/dashboard', requireRole('admin'), (req, res) => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayWIB();
 
   const totalStudentsResult = getOne('SELECT COUNT(*) as count FROM students');
   const totalStudents = totalStudentsResult ? totalStudentsResult.count : 0;
