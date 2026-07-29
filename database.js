@@ -67,7 +67,7 @@ function createTables() {
       username TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       name TEXT NOT NULL,
-      role TEXT NOT NULL CHECK(role IN ('admin', 'siswa', 'ortu')),
+	      role TEXT NOT NULL CHECK(role IN ('admin', 'subadmin', 'siswa', 'ortu')),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);

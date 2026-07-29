@@ -501,6 +501,57 @@ app.get('/api/admin/parents', requireRole('admin'), (req, res) => {
   res.json({ parents });
 });
 
+// ========================================
+// SUBADMIN (WALI KELAS)
+// ========================================
+
+// GET /api/admin/subadmins - Daftar semua subadmin
+app.get('/api/admin/subadmins', requireRole('admin'), (req, res) => {
+  const subadmins = getAll(`
+    SELECT u.id, u.username, u.name, u.role,
+           GROUP_CONCAT(s.name, ', ') as classes
+    FROM users u
+    LEFT JOIN students s ON u.id = s.parent_id
+    WHERE u.role = 'subadmin'
+    GROUP BY u.id
+    ORDER BY u.name
+  `);
+  res.json({ subadmins });
+});
+
+// POST /api/admin/subadmins - Tambah subadmin baru
+app.post('/api/admin/subadmins', requireRole('admin'), (req, res) => {
+  const { username, password, name, class: kelas } = req.body;
+
+  if (!username || !password || !name) {
+    return res.status(400).json({ error: 'Data subadmin tidak lengkap' });
+  }
+
+  const saltRounds = 10;
+  const hash = bcrypt.hashSync(password, saltRounds);
+
+  try {
+    const userId = run('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)', 
+      [username, hash, name, 'subadmin']);
+    
+    // Tambah data subadmin
+    run('INSERT INTO students (user_id, nis, name, class, parent_id) VALUES (?, ?, ?, ?, ?)', 
+      [userId, username, name, kelas || 'Guru', null]);
+
+    res.json({ success: true, message: 'Subadmin berhasil ditambahkan', userId });
+  } catch (error) {
+    res.status(400).json({ error: 'Username sudah digunakan' });
+  }
+});
+
+// DELETE /api/admin/subadmins/:id - Hapus subadmin
+app.delete('/api/admin/subadmins/:id', requireRole('admin'), (req, res) => {
+  const id = parseInt(req.params.id);
+  run('DELETE FROM users WHERE id = ?', [id]);
+  run('DELETE FROM students WHERE parent_id = ?', [id]);
+  res.json({ success: true, message: 'Subadmin berhasil dihapus' });
+});
+
 // POST /api/admin/reset - Reset database (hapus semua data)
 app.post('/api/admin/reset', requireRole('admin'), (req, res) => {
   try {
