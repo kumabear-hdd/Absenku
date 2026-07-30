@@ -160,7 +160,8 @@ app.post('/api/login', (req, res) => {
     id: user.id,
     username: user.username,
     name: user.name,
-    role: user.role
+    role: user.role,
+    class: user.class || null
   };
 
   let studentData = null;
@@ -192,6 +193,38 @@ app.get('/api/me', requireAuth, (req, res) => {
     studentData = getOne('SELECT * FROM students WHERE user_id = ?', [user.id]);
   }
   res.json({ user: { ...user, student: studentData } });
+});
+
+// Login khusus untuk wali kelas (subadmin)
+app.post('/api/subadmin/login', (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username dan password wajib diisi' });
+  }
+
+  const user = getOne('SELECT * FROM users WHERE username = ? AND role = "subadmin"', [username]);
+  if (!user) {
+    return res.status(401).json({ error: 'Akun wali kelas tidak ditemukan' });
+  }
+
+  const valid = bcrypt.compareSync(password, user.password);
+  if (!valid) {
+    return res.status(401).json({ error: 'Password salah' });
+  }
+
+  req.session.user = {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    role: 'subadmin',
+    class: user.class
+  };
+
+  res.json({
+    success: true,
+    user: { id: user.id, username: user.username, name: user.name, role: 'subadmin' }
+  });
 });
 
 // ========================================

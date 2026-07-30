@@ -67,10 +67,12 @@ function createTables() {
       username TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       name TEXT NOT NULL,
-	      role TEXT NOT NULL CHECK(role IN ('admin', 'subadmin', 'siswa', 'ortu')),
+      role TEXT NOT NULL CHECK(role IN ('admin', 'subadmin', 'siswa', 'ortu')),
+      class TEXT,                    -- Kelas untuk wali kelas (subadmin)
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
 
   db.run(`
     CREATE TABLE IF NOT EXISTS students (
@@ -138,6 +140,30 @@ function seedData() {
   // Admin
   const adminHash = bcrypt.hashSync('admin123', saltRounds);
   db.run('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)', ['admin', adminHash, 'Administrator', 'admin']);
+
+  // Seed data wali kelas (subadmin) - 6 kelas
+  const saltRounds = 10;
+  const waliHashes = {
+    'wali5A': bcrypt.hashSync('wali123', saltRounds),
+    'wali5B': bcrypt.hashSync('wali123', saltRounds),
+    'wali5C': bcrypt.hashSync('wali123', saltRounds),
+    'wali5D': bcrypt.hashSync('wali123', saltRounds),
+    'wali5E': bcrypt.hashSync('wali123', saltRounds),
+    'wali5F': bcrypt.hashSync('wali123', saltRounds)
+  };
+
+  db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
+    ['wali5A', waliHashes.wali5A, 'Wali Kelas 5A', 'subadmin', '5A']);
+  db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
+    ['wali5B', waliHashes.wali5B, 'Wali Kelas 5B', 'subadmin', '5B']);
+  db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
+    ['wali5C', waliHashes.wali5C, 'Wali Kelas 5C', 'subadmin', '5C']);
+  db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
+    ['wali5D', waliHashes.wali5D, 'Wali Kelas 5D', 'subadmin', '5D']);
+  db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
+    ['wali5E', waliHashes.wali5E, 'Wali Kelas 5E', 'subadmin', '5E']);
+  db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
+    ['wali5F', waliHashes.wali5F, 'Wali Kelas 5F', 'subadmin', '5F']);
 
   // Orang Tua
   const ortu1Hash = bcrypt.hashSync('ortu123', saltRounds);
