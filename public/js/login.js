@@ -30,6 +30,11 @@ window.addEventListener('beforeunload', () => {
   }
 });
 
+document.addEventListener('DOMContentLoaded', () => {
+  const alertBox = document.getElementById('alertBox');
+  if (alertBox) alertBox.style.display = 'none';
+});
+
 async function doLogin() {
   const username = document.getElementById('username').value.trim();
   const password = document.getElementById('password').value;
