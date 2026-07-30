@@ -182,6 +182,16 @@
             </button>
           </div>
 
+          <!-- Status Pilihan Baru -->
+          <div class="mt-4">
+            <h5 class="mb-3">Pilih Status Absen</h5>
+            <div class="btn-group w-100" role="group">
+              <button onclick="doCheckin('sakit')" class="btn btn-info btn-sm">Sakit</button>
+              <button onclick="doCheckin('izin')" class="btn btn-secondary btn-sm">Izin</button>
+              <button onclick="doCheckin('alpha')" class="btn btn-danger btn-sm">Alpha</button>
+            </div>
+          </div>
+
           <!-- Alert -->
           <div id="absenAlert" class="alert" style="display:none;margin-top:12px;"></div>
         </div>

@@ -110,8 +110,9 @@ async function loadTodayStatus() {
       // Sudah masuk, belum pulang
       statusIcon.className = 'status-icon done';
       statusIcon.textContent = '✅';
-      statusTitle.textContent = 'Sudah Absen Masuk';
-      statusSubtitle.textContent = `Status: ${getStatusBadge(att.status)}`;
+statusTitle.textContent = 'Sudah Absen Masuk';
+          statusSubtitle.textContent = `Status: ${getStatusBadge(att.status || 'hadir')}`;
+
 
       document.getElementById('timeMasuk').textContent = att.check_in_time;
       document.getElementById('timePulang').textContent = '--:--';
@@ -127,8 +128,9 @@ async function loadTodayStatus() {
       // Sudah masuk & pulang
       statusIcon.className = 'status-icon done';
       statusIcon.textContent = '🎉';
-      statusTitle.textContent = 'Absensi Hari Ini Selesai';
-      statusSubtitle.textContent = `Status: ${getStatusBadge(att.status)}`;
+statusTitle.textContent = 'Absensi Hari Ini Selesai';
+          statusSubtitle.textContent = `Status: ${getStatusBadge(att.status || 'hadir')}`;
+
 
       document.getElementById('timeMasuk').textContent = att.check_in_time;
       document.getElementById('timePulang').textContent = att.check_out_time;
@@ -212,7 +214,7 @@ function getLokasi() {
 // ABSEN MASUK
 // ========================================
 
-async function doCheckin() {
+async function doCheckin(status = 'hadir') {
   if (!capturedBlob) {
     showAlert('Ambil foto terlebih dahulu!', 'error');
     return;
@@ -232,6 +234,7 @@ async function doCheckin() {
     formData.append('photo', capturedBlob, 'selfie.jpg');
     if (lokasi.lat) formData.append('lat', lokasi.lat);
     if (lokasi.lng) formData.append('lng', lokasi.lng);
+    if (status !== 'hadir') formData.append('status', status);
 
     const data = await apiPostForm('/api/attendance/checkin', formData);
 
@@ -250,7 +253,7 @@ async function doCheckin() {
   }
 }
 
-async function doCheckout() {
+async function doCheckout(status = 'hadir') {
   if (!capturedBlob) {
     showAlert('Ambil foto terlebih dahulu!', 'error');
     return;
@@ -270,6 +273,7 @@ async function doCheckout() {
     formData.append('photo', capturedBlob, 'selfie.jpg');
     if (lokasi.lat) formData.append('lat', lokasi.lat);
     if (lokasi.lng) formData.append('lng', lokasi.lng);
+    if (status !== 'hadir') formData.append('status', status);
 
     const data = await apiPostForm('/api/attendance/checkout', formData);
 
