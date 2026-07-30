@@ -41,9 +41,11 @@ async function doLogin() {
 
     if (data.success) {
       redirectByRole(data.user.role);
+    } else {
+      throw new Error(data.error || 'Login gagal');
     }
   } catch (error) {
-    showAlert(error.message);
+    showAlert(error.message || 'Login gagal, coba lagi');
   } finally {
     btnLogin.disabled = false;
     btnLogin.textContent = '🔐 Login';
