@@ -24,6 +24,12 @@ loginForm.addEventListener('submit', async (e) => {
   await doLogin();
 });
 
+window.addEventListener('beforeunload', () => {
+  if (document.getElementById('loginForm')) {
+    localStorage.removeItem('absenku_session');
+  }
+});
+
 async function doLogin() {
   const username = document.getElementById('username').value.trim();
   const password = document.getElementById('password').value;
@@ -46,7 +52,6 @@ async function doLogin() {
     }
   } catch (error) {
     showAlert(error.message || 'Login gagal, coba lagi');
-  } finally {
     btnLogin.disabled = false;
     btnLogin.textContent = '🔐 Login';
   }
