@@ -135,22 +135,22 @@ function seedData() {
 
   console.log('🌱 Seeding database dengan data awal...');
 
-  const saltRounds = 10;
+	  const saltRounds = 10;
 
-  // Admin
-  const adminHash = bcrypt.hashSync('admin123', saltRounds);
-  db.run('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)', ['admin', adminHash, 'Administrator', 'admin']);
+	  // Admin
+	  const adminHash = bcrypt.hashSync('admin123', saltRounds);
+	  db.run('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)', ['admin', adminHash, 'Administrator', 'admin']);
 
-  // Seed data wali kelas (subadmin) - 6 kelas
-  const saltRounds = 10;
-  const waliHashes = {
-    'wali5A': bcrypt.hashSync('wali123', saltRounds),
-    'wali5B': bcrypt.hashSync('wali123', saltRounds),
-    'wali5C': bcrypt.hashSync('wali123', saltRounds),
-    'wali5D': bcrypt.hashSync('wali123', saltRounds),
-    'wali5E': bcrypt.hashSync('wali123', saltRounds),
-    'wali5F': bcrypt.hashSync('wali123', saltRounds)
-  };
+	  // Seed data wali kelas (subadmin) - 6 kelas
+	  const waliHashes = {
+	    'wali5A': bcrypt.hashSync('wali123', saltRounds),
+	    'wali5B': bcrypt.hashSync('wali123', saltRounds),
+	    'wali5C': bcrypt.hashSync('wali123', saltRounds),
+	    'wali5D': bcrypt.hashSync('wali123', saltRounds),
+	    'wali5E': bcrypt.hashSync('wali123', saltRounds),
+	    'wali5F': bcrypt.hashSync('wali123', saltRounds)
+	  };
+
 
   db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
     ['wali5A', waliHashes.wali5A, 'Wali Kelas 5A', 'subadmin', '5A']);
