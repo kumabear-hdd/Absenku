@@ -141,29 +141,29 @@ function seedData() {
 	  const adminHash = bcrypt.hashSync('admin123', saltRounds);
 	  db.run('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)', ['admin', adminHash, 'Administrator', 'admin']);
 
-	  // Seed data wali kelas (subadmin) - 6 kelas
+// Seed data wali kelas (subadmin) - 6 kelas
 	  const waliHashes = {
-	    'wali5A': bcrypt.hashSync('wali123', saltRounds),
-	    'wali5B': bcrypt.hashSync('wali123', saltRounds),
-	    'wali5C': bcrypt.hashSync('wali123', saltRounds),
-	    'wali5D': bcrypt.hashSync('wali123', saltRounds),
-	    'wali5E': bcrypt.hashSync('wali123', saltRounds),
-	    'wali5F': bcrypt.hashSync('wali123', saltRounds)
+	    'wali1': bcrypt.hashSync('wali123', saltRounds),
+	    'wali2': bcrypt.hashSync('wali123', saltRounds),
+	    'wali3': bcrypt.hashSync('wali123', saltRounds),
+	    'wali4': bcrypt.hashSync('wali123', saltRounds),
+	    'wali5': bcrypt.hashSync('wali123', saltRounds),
+	    'wali6': bcrypt.hashSync('wali123', saltRounds)
 	  };
 
 
-  db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
-    ['wali5A', waliHashes.wali5A, 'Wali Kelas 5A', 'subadmin', '5A']);
-  db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
-    ['wali5B', waliHashes.wali5B, 'Wali Kelas 5B', 'subadmin', '5B']);
-  db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
-    ['wali5C', waliHashes.wali5C, 'Wali Kelas 5C', 'subadmin', '5C']);
-  db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
-    ['wali5D', waliHashes.wali5D, 'Wali Kelas 5D', 'subadmin', '5D']);
-  db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
-    ['wali5E', waliHashes.wali5E, 'Wali Kelas 5E', 'subadmin', '5E']);
-  db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
-    ['wali5F', waliHashes.wali5F, 'Wali Kelas 5F', 'subadmin', '5F']);
+   db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
+     ['wali1', waliHashes.wali1, 'Wali Kelas 1', 'subadmin', '1']);
+   db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
+     ['wali2', waliHashes.wali2, 'Wali Kelas 2', 'subadmin', '2']);
+   db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
+     ['wali3', waliHashes.wali3, 'Wali Kelas 3', 'subadmin', '3']);
+   db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
+     ['wali4', waliHashes.wali4, 'Wali Kelas 4', 'subadmin', '4']);
+   db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
+     ['wali5', waliHashes.wali5, 'Wali Kelas 5', 'subadmin', '5']);
+   db.run('INSERT OR IGNORE INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
+     ['wali6', waliHashes.wali6, 'Wali Kelas 6', 'subadmin', '6']);
 
   // Orang Tua
   const ortu1Hash = bcrypt.hashSync('ortu123', saltRounds);
@@ -190,8 +190,8 @@ function seedData() {
   const siswa2UserId = siswa2Result[0].values[0][0];
 
   // Data siswa
-  db.run('INSERT INTO students (user_id, nis, name, class, parent_id) VALUES (?, ?, ?, ?, ?)', [siswa1UserId, '2024001', 'Budi Santoso', '5A', ortu1Id]);
-  db.run('INSERT INTO students (user_id, nis, name, class, parent_id) VALUES (?, ?, ?, ?, ?)', [siswa2UserId, '2024002', 'Siti Nurhaliza', '5B', ortu2Id]);
+  db.run('INSERT INTO students (user_id, nis, name, class, parent_id) VALUES (?, ?, ?, ?, ?)', [siswa1UserId, '2024001', 'Budi Santoso', '1', ortu1Id]);
+  db.run('INSERT INTO students (user_id, nis, name, class, parent_id) VALUES (?, ?, ?, ?, ?)', [siswa2UserId, '2024002', 'Siti Nurhaliza', '2', ortu2Id]);
 
   saveDatabase();
 

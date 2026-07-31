@@ -34,7 +34,7 @@ async function loadDashboard() {
       }
     });
     const kelasTerpakai = kelasSet.size;
-    const semuaKelas = ['5A','5B','5C','5D','5E','5F'];
+    const semuaKelas = ['1','2','3','4','5','6'];
     const kelasKosong = semuaKelas.filter(k => !kelasSet.has(k)).length;
 
     document.getElementById('statTotalWali').textContent = totalWali;
