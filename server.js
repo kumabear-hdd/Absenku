@@ -685,7 +685,7 @@ app.get('/api/walas/dashboard', requireRole('subadmin'), (req, res) => {
   const totalStudents = students.length;
 
   const todayAttendances = getAll(`
-    SELECT a.*, s.name as student_name, s.nisn
+    SELECT a.*, s.name as student_name, s.nis as nisn
     FROM attendances a
     JOIN students s ON a.student_id = s.id
     WHERE s.class = ? AND s.user_id != ? AND a.date = ?
