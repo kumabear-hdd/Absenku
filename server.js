@@ -602,8 +602,8 @@ app.post('/api/admin/subadmins', requireRole('admin'), (req, res) => {
   const hash = bcrypt.hashSync(password, saltRounds);
 
   try {
-    const userId = run('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)', 
-      [username, hash, name, 'subadmin']);
+    const userId = run('INSERT INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
+      [username, hash, name, 'subadmin', kelas || null]);
     
     // Tambah data subadmin
     run('INSERT INTO students (user_id, nis, name, class, parent_id) VALUES (?, ?, ?, ?, ?)', 
