@@ -707,7 +707,7 @@ app.get('/api/walas/students', requireRole('subadmin'), (req, res) => {
   const userId = req.session.user.id;
 
   const students = getAll(`
-    SELECT s.*, u.username, p.name as parent_name
+    SELECT s.id, s.user_id, s.nis as nisn, s.name, s.class, s.photo, s.parent_id, s.created_at, u.username, p.name as parent_name
     FROM students s
     JOIN users u ON s.user_id = u.id
     LEFT JOIN users p ON s.parent_id = p.id
