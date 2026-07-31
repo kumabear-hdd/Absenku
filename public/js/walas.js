@@ -7,25 +7,44 @@ let waliClass = null;
 
 // Init
 (async () => {
-  currentUser = await getCurrentUser();
-  if (!currentUser) {
-    window.location.href = '/login.html';
-    return;
+  try {
+    currentUser = await getCurrentUser();
+    if (!currentUser) {
+      window.location.href = '/login.html';
+      return;
+    }
+
+    if (currentUser.role !== 'subadmin') {
+      window.location.href = '/';
+      return;
+    }
+
+    document.getElementById('navbar').innerHTML = buildNavbar(currentUser);
+    document.getElementById('todayDate').textContent = getTodayFormatted();
+
+    waliClass = currentUser.class || null;
+
+    if (!waliClass) {
+      showWalasError('Akun wali kelas belum memiliki kelas yang ditugaskan. Hubungi admin untuk mengatur kelas Anda.');
+      return;
+    }
+
+    await loadDashboard();
+    await loadStudents();
+  } catch (error) {
+    console.error('Init error:', error);
+    showWalasError('Gagal memuat dashboard: ' + error.message);
   }
-
-  if (currentUser.role !== 'subadmin') {
-    window.location.href = '/';
-    return;
-  }
-
-  document.getElementById('navbar').innerHTML = buildNavbar(currentUser);
-  document.getElementById('todayDate').textContent = getTodayFormatted();
-
-  waliClass = currentUser.class || null;
-
-  loadDashboard();
-  loadStudents();
 })();
+
+function showWalasError(message) {
+  const alertBox = document.getElementById('addStudentAlert');
+  if (alertBox) {
+    alertBox.className = 'alert alert-error';
+    alertBox.textContent = '❌ ' + message;
+    alertBox.style.display = 'flex';
+  }
+}
 
 // Load dashboard data
 async function loadDashboard() {
@@ -66,6 +85,16 @@ async function loadDashboard() {
 
   } catch (error) {
     console.error('Load dashboard error:', error);
+    const tbody = document.getElementById('attendanceTable');
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="empty-state">
+          <div class="empty-icon">⚠️</div>
+          <h3>Gagal memuat data</h3>
+          <p>${error.message}</p>
+        </td>
+      </tr>
+    `;
   }
 }
 
@@ -104,6 +133,16 @@ async function loadStudents() {
 
   } catch (error) {
     console.error('Load students error:', error);
+    const tbody = document.getElementById('studentsTable');
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" class="empty-state">
+          <div class="empty-icon">⚠️</div>
+          <h3>Gagal memuat data siswa</h3>
+          <p>${error.message}</p>
+        </td>
+      </tr>
+    `;
   }
 }
 
