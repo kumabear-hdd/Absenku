@@ -286,7 +286,9 @@ app.post('/api/attendance/checkin', requireRole('siswa'), upload.single('photo')
 
     const hour = getHourWIB();
     const minute = getMinuteWIB();
-    const status = (hour > 7 || (hour === 7 && minute > 30)) ? 'terlambat' : 'hadir';
+    const timeBasedStatus = hour >= 8 ? 'terlambat' : 'hadir';
+    const clientStatus = req.body.status || null;
+    const status = (clientStatus && clientStatus !== 'hadir') ? clientStatus : timeBasedStatus;
 
     if (existing) {
       run('UPDATE attendances SET check_in_time = ?, check_in_photo = ?, check_in_lat = ?, check_in_lng = ?, status = ? WHERE id = ?', [now, photoPath, lat, lng, status, existing.id]);
