@@ -531,8 +531,14 @@ app.post('/api/admin/students', requireRole('admin'), (req, res) => {
 
     res.json({ success: true, message: 'Siswa berhasil ditambahkan' });
   } catch (error) {
-    console.error('Add student error:', error);
-    res.status(400).json({ error: 'NIS atau username sudah digunakan' });
+    console.error('Add student error:', error.message);
+    if (error.message.includes('UNIQUE constraint failed: users.username')) {
+      res.status(400).json({ error: 'Username sudah digunakan, silakan gunakan username lain' });
+    } else if (error.message.includes('UNIQUE constraint failed: students.nis')) {
+      res.status(400).json({ error: 'NISN sudah digunakan, silakan gunakan NISN lain' });
+    } else {
+      res.status(400).json({ error: 'Gagal menambahkan siswa: ' + error.message });
+    }
   }
 });
 
@@ -730,8 +736,14 @@ app.post('/api/walas/students', requireRole('subadmin'), (req, res) => {
 
     res.json({ success: true, message: 'Siswa berhasil ditambahkan' });
   } catch (error) {
-    console.error('Add student error:', error);
-    res.status(400).json({ error: 'NISN atau username sudah digunakan' });
+    console.error('Add student error:', error.message);
+    if (error.message.includes('UNIQUE constraint failed: users.username')) {
+      res.status(400).json({ error: 'Username sudah digunakan, silakan gunakan username lain' });
+    } else if (error.message.includes('UNIQUE constraint failed: students.nis')) {
+      res.status(400).json({ error: 'NISN sudah digunakan, silakan gunakan NISN lain' });
+    } else {
+      res.status(400).json({ error: 'Gagal menambahkan siswa: ' + error.message });
+    }
   }
 });
 
