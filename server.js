@@ -678,18 +678,19 @@ app.get('/walas', requireRole('subadmin'), (req, res) => {
 
 app.get('/api/walas/dashboard', requireRole('subadmin'), (req, res) => {
   const userClass = req.session.user.class;
+  const userId = req.session.user.id;
   const today = getTodayWIB();
 
-  const students = getAll('SELECT * FROM students WHERE class = ?', [userClass]);
+  const students = getAll('SELECT * FROM students WHERE class = ? AND user_id != ?', [userClass, userId]);
   const totalStudents = students.length;
 
   const todayAttendances = getAll(`
-    SELECT a.*, s.name as student_name, s.nis as nisn
+    SELECT a.*, s.name as student_name, s.nisn
     FROM attendances a
     JOIN students s ON a.student_id = s.id
-    WHERE s.class = ? AND a.date = ?
+    WHERE s.class = ? AND s.user_id != ? AND a.date = ?
     ORDER BY a.check_in_time DESC
-  `, [userClass, today]);
+  `, [userClass, userId, today]);
 
   const stats = {
     totalStudents,
@@ -703,15 +704,16 @@ app.get('/api/walas/dashboard', requireRole('subadmin'), (req, res) => {
 
 app.get('/api/walas/students', requireRole('subadmin'), (req, res) => {
   const userClass = req.session.user.class;
+  const userId = req.session.user.id;
 
   const students = getAll(`
     SELECT s.*, u.username, p.name as parent_name
     FROM students s
     JOIN users u ON s.user_id = u.id
     LEFT JOIN users p ON s.parent_id = p.id
-    WHERE s.class = ?
+    WHERE s.class = ? AND s.user_id != ?
     ORDER BY s.name
-  `, [userClass]);
+  `, [userClass, userId]);
 
   res.json({ students });
 });
