@@ -576,7 +576,7 @@ app.get('/api/admin/subadmins', requireRole('admin'), (req, res) => {
     SELECT u.id, u.username, u.name, u.role,
            GROUP_CONCAT(s.name, ', ') as classes
     FROM users u
-    LEFT JOIN students s ON u.id = s.parent_id
+    LEFT JOIN students s ON u.id = s.user_id
     WHERE u.role = 'subadmin'
     GROUP BY u.id
     ORDER BY u.name
@@ -612,8 +612,8 @@ app.post('/api/admin/subadmins', requireRole('admin'), (req, res) => {
 // DELETE /api/admin/subadmins/:id - Hapus subadmin
 app.delete('/api/admin/subadmins/:id', requireRole('admin'), (req, res) => {
   const id = parseInt(req.params.id);
+  run('DELETE FROM students WHERE user_id = ?', [id]);
   run('DELETE FROM users WHERE id = ?', [id]);
-  run('DELETE FROM students WHERE parent_id = ?', [id]);
   res.json({ success: true, message: 'Subadmin berhasil dihapus' });
 });
 

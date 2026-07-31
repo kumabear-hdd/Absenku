@@ -1,5 +1,5 @@
 // ========================================
-// Admin Dashboard Logic
+// Admin Dashboard Logic - Wali Kelas
 // ========================================
 
 let currentUser = null;
@@ -21,40 +21,53 @@ let currentUser = null;
 // Load dashboard data
 async function loadDashboard() {
   try {
-    const data = await apiGet('/api/admin/dashboard');
+    const data = await apiGet('/api/admin/subadmins');
+
+    const subadmins = data.subadmins || [];
 
     // Update stats
-    document.getElementById('statTotal').textContent = data.stats.totalStudents;
-    document.getElementById('statHadir').textContent = data.stats.hadir;
-    document.getElementById('statPulang').textContent = data.stats.sudahPulang;
-    document.getElementById('statBelum').textContent = data.stats.belumHadir;
+    const totalWali = subadmins.length;
+    const kelasSet = new Set();
+    subadmins.forEach(s => {
+      if (s.classes) {
+        s.classes.split(', ').forEach(c => kelasSet.add(c.trim()));
+      }
+    });
+    const kelasTerpakai = kelasSet.size;
+    const semuaKelas = ['1A','1B','1C','2A','2B','2C','3A','3B','3C','4A','4B','4C','5A','5B','5C','5D','5E','5F','6A','6B','6C'];
+    const kelasKosong = semuaKelas.filter(k => !kelasSet.has(k)).length;
+
+    document.getElementById('statTotalWali').textContent = totalWali;
+    document.getElementById('statKelasTerpakai').textContent = kelasTerpakai;
+    document.getElementById('statKelasKosong').textContent = kelasKosong;
 
     // Update table
-    const tbody = document.getElementById('attendanceTable');
+    const tbody = document.getElementById('waliKelasTable');
 
-    if (data.attendances.length === 0) {
+    if (subadmins.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="8" class="empty-state">
-            <div class="empty-icon">📋</div>
-            <h3>Belum ada absensi hari ini</h3>
-            <p>Absensi akan muncul di sini setelah siswa melakukan absen</p>
+          <td colspan="5" class="empty-state">
+            <div class="empty-icon">👨‍🏫</div>
+            <h3>Belum ada wali kelas</h3>
+            <p>Tambahkan wali kelas baru menggunakan tab "Tambah Wali Kelas"</p>
           </td>
         </tr>
       `;
       return;
     }
 
-    tbody.innerHTML = data.attendances.map(a => `
+    tbody.innerHTML = subadmins.map(s => `
       <tr>
-        <td><strong>${a.nis}</strong></td>
-        <td>${a.student_name}</td>
-        <td>${a.student_class}</td>
-        <td>${a.check_in_time || '-'}</td>
-        <td>${a.check_in_photo ? `<img src="${a.check_in_photo}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;">` : '-'}</td>
-        <td>${a.check_out_time || '-'}</td>
-        <td>${a.check_out_photo ? `<img src="${a.check_out_photo}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;">` : '-'}</td>
-        <td>${getStatusBadge(a.status)}</td>
+        <td><strong>${s.name}</strong></td>
+        <td>${s.username}</td>
+        <td>${s.classes || '-'}</td>
+        <td>${s.created_at ? new Date(s.created_at).toLocaleDateString('id-ID') : '-'}</td>
+        <td>
+          <button class="btn btn-danger" style="padding:4px 10px;font-size:12px;" onclick="deleteSubadmin(${s.id}, '${s.name}')">
+            🗑️ Hapus
+          </button>
+        </td>
       </tr>
     `).join('');
 
@@ -63,105 +76,57 @@ async function loadDashboard() {
   }
 }
 
-// Load students list
-async function loadStudents() {
-  try {
-    const data = await apiGet('/api/admin/students');
-    const tbody = document.getElementById('studentsTable');
-
-    if (data.students.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="6" class="empty-state">
-            <div class="empty-icon">👥</div>
-            <h3>Belum ada data siswa</h3>
-            <p>Tambahkan siswa baru menggunakan tab "Tambah Siswa"</p>
-          </td>
-        </tr>
-      `;
-      return;
-    }
-
-    tbody.innerHTML = data.students.map(s => `
-      <tr>
-        <td><strong>${s.nis}</strong></td>
-        <td>${s.name}</td>
-        <td>${s.class}</td>
-        <td>${s.username}</td>
-        <td>${s.parent_name || '<span style="color:var(--gray-400)">-</span>'}</td>
-        <td>
-          <button class="btn btn-danger" style="padding:4px 10px;font-size:12px;" onclick="deleteStudent(${s.id}, '${s.name}')">
-            🗑️ Hapus
-          </button>
-        </td>
-      </tr>
-    `).join('');
-
-  } catch (error) {
-    console.error('Load students error:', error);
-  }
+// Load subadmins (alias for refresh)
+async function loadSubadmins() {
+  await loadDashboard();
 }
 
 // Tab switching
 function showTab(tab) {
-  // Hide all content
-  document.getElementById('contentAttendance').style.display = 'none';
-  document.getElementById('contentStudents').style.display = 'none';
-  document.getElementById('contentAddStudent').style.display = 'none';
+  document.getElementById('contentWaliKelas').style.display = 'none';
+  document.getElementById('contentAddWali').style.display = 'none';
 
-  // Reset button styles
-  document.getElementById('tabAttendance').className = 'btn btn-outline';
-  document.getElementById('tabStudents').className = 'btn btn-outline';
-  document.getElementById('tabAddStudent').className = 'btn btn-outline';
+  document.getElementById('tabWaliKelas').className = 'btn btn-outline';
+  document.getElementById('tabAddWali').className = 'btn btn-outline';
 
-  // Show selected tab
   switch (tab) {
-    case 'attendance':
-      document.getElementById('contentAttendance').style.display = 'block';
-      document.getElementById('tabAttendance').className = 'btn btn-primary';
+    case 'waliKelas':
+      document.getElementById('contentWaliKelas').style.display = 'block';
+      document.getElementById('tabWaliKelas').className = 'btn btn-primary';
       loadDashboard();
       break;
-    case 'students':
-      document.getElementById('contentStudents').style.display = 'block';
-      document.getElementById('tabStudents').className = 'btn btn-primary';
-      loadStudents();
-      break;
-    case 'addStudent':
-      document.getElementById('contentAddStudent').style.display = 'block';
-      document.getElementById('tabAddStudent').className = 'btn btn-primary';
+    case 'addWali':
+      document.getElementById('contentAddWali').style.display = 'block';
+      document.getElementById('tabAddWali').className = 'btn btn-primary';
       break;
   }
 }
 
-// Add student form
-document.getElementById('addStudentForm').addEventListener('submit', async (e) => {
+// Add subadmin form
+document.getElementById('addWaliForm').addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  const alertBox = document.getElementById('addStudentAlert');
+  const alertBox = document.getElementById('addWaliAlert');
 
   const body = {
-    nis: document.getElementById('newNis').value.trim(),
-    name: document.getElementById('newName').value.trim(),
-    class: document.getElementById('newClass').value.trim(),
-    username: document.getElementById('newUsername').value.trim(),
-    password: document.getElementById('newPassword').value,
-    parentName: document.getElementById('newParentName').value.trim() || null,
-    parentUsername: document.getElementById('newParentUsername').value.trim() || null,
-    parentPassword: document.getElementById('newParentPassword').value || null
+    name: document.getElementById('newWaliName').value.trim(),
+    username: document.getElementById('newWaliUsername').value.trim(),
+    password: document.getElementById('newWaliPassword').value,
+    class: document.getElementById('newWaliClass').value.trim()
   };
 
   try {
-    const data = await apiPost('/api/admin/students', body);
+    const data = await apiPost('/api/admin/subadmins', body);
 
     alertBox.className = 'alert alert-success';
     alertBox.textContent = '✅ ' + data.message;
     alertBox.style.display = 'flex';
 
-    // Reset form
-    document.getElementById('addStudentForm').reset();
+    document.getElementById('addWaliForm').reset();
 
-    // Refresh data otomatis
-    loadDashboard();
+    setTimeout(() => {
+      showTab('waliKelas');
+    }, 1000);
 
     setTimeout(() => {
       alertBox.style.display = 'none';
@@ -174,16 +139,15 @@ document.getElementById('addStudentForm').addEventListener('submit', async (e) =
   }
 });
 
-// Delete student
-async function deleteStudent(id, name) {
-  if (!confirm(`Hapus siswa "${name}"? Data absensi juga akan dihapus.`)) {
+// Delete subadmin
+async function deleteSubadmin(id, name) {
+  if (!confirm(`Hapus wali kelas "${name}"?`)) {
     return;
   }
 
   try {
-    await apiDelete(`/api/admin/students/${id}`);
-    loadStudents();
-    loadDashboard(); // Refresh stats juga
+    await apiDelete(`/api/admin/subadmins/${id}`);
+    loadDashboard();
   } catch (error) {
     alert('Gagal menghapus: ' + error.message);
   }
@@ -191,7 +155,7 @@ async function deleteStudent(id, name) {
 
 // Reset database
 async function resetDatabase() {
-  const confirm1 = confirm('⚠️ PERINGATAN!\n\nIni akan MENGHAPUS SEMUA data siswa, orang tua, dan absensi.\nData admin tetap dipertahankan.\n\nLanjutkan?');
+  const confirm1 = confirm('⚠️ PERINGATAN!\n\nIni akan MENGHAPUS SEMUA data siswa, orang tua, wali kelas, dan absensi.\nData admin tetap dipertahankan.\n\nLanjutkan?');
   if (!confirm1) return;
 
   const confirm2 = confirm('Apakah Anda YAKIN? Data yang dihapus TIDAK bisa dikembalikan.');
@@ -201,7 +165,6 @@ async function resetDatabase() {
     const data = await apiPost('/api/admin/reset', {});
     alert('✅ ' + data.message);
     loadDashboard();
-    loadStudents();
   } catch (error) {
     alert('❌ Gagal reset: ' + error.message);
   }
