@@ -660,6 +660,102 @@ app.get('/parent', requireRole('ortu'), (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'parent.html'));
 });
 
+app.get('/walas', requireRole('subadmin'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'walas.html'));
+});
+
+// ========================================
+// API: WALI KELAS (SUBADMIN)
+// ========================================
+
+app.get('/api/walas/dashboard', requireRole('subadmin'), (req, res) => {
+  const userClass = req.session.user.class;
+  const today = getTodayWIB();
+
+  const students = getAll('SELECT * FROM students WHERE class = ?', [userClass]);
+  const totalStudents = students.length;
+
+  const todayAttendances = getAll(`
+    SELECT a.*, s.name as student_name, s.nis
+    FROM attendances a
+    JOIN students s ON a.student_id = s.id
+    WHERE s.class = ? AND a.date = ?
+    ORDER BY a.check_in_time DESC
+  `, [userClass, today]);
+
+  const stats = {
+    totalStudents,
+    hadir: todayAttendances.filter(a => a.check_in_time).length,
+    sudahPulang: todayAttendances.filter(a => a.check_out_time).length,
+    belumHadir: totalStudents - todayAttendances.filter(a => a.check_in_time).length
+  };
+
+  res.json({ stats, attendances: todayAttendances });
+});
+
+app.get('/api/walas/students', requireRole('subadmin'), (req, res) => {
+  const userClass = req.session.user.class;
+
+  const students = getAll(`
+    SELECT s.*, u.username, p.name as parent_name
+    FROM students s
+    JOIN users u ON s.user_id = u.id
+    LEFT JOIN users p ON s.parent_id = p.id
+    WHERE s.class = ?
+    ORDER BY s.name
+  `, [userClass]);
+
+  res.json({ students });
+});
+
+app.post('/api/walas/students', requireRole('subadmin'), (req, res) => {
+  const userClass = req.session.user.class;
+  const { nis, name, username, password, parentUsername, parentPassword, parentName } = req.body;
+
+  if (!nis || !name || !username || !password) {
+    return res.status(400).json({ error: 'Data siswa tidak lengkap' });
+  }
+
+  try {
+    const siswaHash = bcrypt.hashSync(password, 10);
+    const siswaUserId = run('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)', [username, siswaHash, name, 'siswa']);
+
+    let parentId = null;
+    if (parentUsername && parentPassword && parentName) {
+      const ortuHash = bcrypt.hashSync(parentPassword, 10);
+      parentId = run('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)', [parentUsername, ortuHash, parentName, 'ortu']);
+    }
+
+    run('INSERT INTO students (user_id, nis, name, class, parent_id) VALUES (?, ?, ?, ?, ?)', [siswaUserId, nis, name, userClass, parentId]);
+
+    res.json({ success: true, message: 'Siswa berhasil ditambahkan' });
+  } catch (error) {
+    console.error('Add student error:', error);
+    res.status(400).json({ error: 'NIS atau username sudah digunakan' });
+  }
+});
+
+app.delete('/api/walas/students/:id', requireRole('subadmin'), (req, res) => {
+  const studentId = parseInt(req.params.id);
+  const student = getOne('SELECT * FROM students WHERE id = ?', [studentId]);
+
+  if (!student) {
+    return res.status(404).json({ error: 'Siswa tidak ditemukan' });
+  }
+
+  const userClass = req.session.user.class;
+  if (student.class !== userClass) {
+    return res.status(403).json({ error: 'Anda tidak memiliki akses untuk menghapus siswa ini' });
+  }
+
+  run('DELETE FROM attendances WHERE student_id = ?', [studentId]);
+  run('DELETE FROM notifications WHERE student_id = ?', [studentId]);
+  run('DELETE FROM students WHERE id = ?', [studentId]);
+  run('DELETE FROM users WHERE id = ?', [student.user_id]);
+
+  res.json({ success: true, message: 'Siswa berhasil dihapus' });
+});
+
 // ========================================
 // START SERVER
 // ========================================

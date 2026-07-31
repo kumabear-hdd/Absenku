@@ -73,6 +73,9 @@ function redirectByRole(role) {
     case 'ortu':
       window.location.href = '/parent.html';
       break;
+    case 'subadmin':
+      window.location.href = '/walas.html';
+      break;
     default:
       window.location.href = '/';
   }
