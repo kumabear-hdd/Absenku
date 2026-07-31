@@ -54,7 +54,7 @@ async function loadDashboard() {
 
     tbody.innerHTML = data.attendances.map(a => `
       <tr>
-        <td><strong>${a.nis}</strong></td>
+        <td><strong>${a.nisn || '-'}</strong></td>
         <td>${a.student_name}</td>
         <td>${a.check_in_time || '-'}</td>
         <td>${a.check_in_photo ? `<img src="${a.check_in_photo}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;">` : '-'}</td>
@@ -90,7 +90,7 @@ async function loadStudents() {
 
     tbody.innerHTML = data.students.map(s => `
       <tr>
-        <td><strong>${s.nis}</strong></td>
+        <td><strong>${s.nisn || '-'}</strong></td>
         <td>${s.name}</td>
         <td>${s.username}</td>
         <td>${s.parent_name || '<span style="color:var(--gray-400)">-</span>'}</td>
@@ -141,11 +141,24 @@ document.getElementById('addStudentForm').addEventListener('submit', async (e) =
 
   const alertBox = document.getElementById('addStudentAlert');
 
+  const nisn = document.getElementById('newNis').value.trim();
+  const name = document.getElementById('newName').value.trim();
+  const username = document.getElementById('newUsername').value.trim();
+  const password = document.getElementById('newPassword').value;
+
+  if (!nisn || !name || !username || !password) {
+    alertBox.className = 'alert alert-error';
+    alertBox.textContent = '❌ Semua bidang wajib diisi';
+    alertBox.style.display = 'flex';
+    setTimeout(() => { alertBox.style.display = 'none'; }, 3000);
+    return;
+  }
+
   const body = {
-    nis: document.getElementById('newNis').value.trim(),
-    name: document.getElementById('newName').value.trim(),
-    username: document.getElementById('newUsername').value.trim(),
-    password: document.getElementById('newPassword').value,
+    nisn,
+    name,
+    username,
+    password,
     parentName: document.getElementById('newParentName').value.trim() || null,
     parentUsername: document.getElementById('newParentUsername').value.trim() || null,
     parentPassword: document.getElementById('newParentPassword').value || null
@@ -173,6 +186,9 @@ document.getElementById('addStudentForm').addEventListener('submit', async (e) =
     alertBox.className = 'alert alert-error';
     alertBox.textContent = '❌ ' + error.message;
     alertBox.style.display = 'flex';
+    setTimeout(() => {
+      alertBox.style.display = 'none';
+    }, 5000);
   }
 });
 
@@ -188,5 +204,23 @@ async function deleteStudent(id, name) {
     loadDashboard();
   } catch (error) {
     alert('Gagal menghapus: ' + error.message);
+  }
+}
+
+// Reset database
+async function resetDatabase() {
+  const confirm1 = confirm('⚠️ PERINGATAN!\n\nIni akan MENGHAPUS SEMUA data siswa dan absensi di kelas ini.\nData wali kelas tetap dipertahankan.\n\nLanjutkan?');
+  if (!confirm1) return;
+
+  const confirm2 = confirm('Apakah Anda YAKIN? Data yang dihapus TIDAK bisa dikembalikan.');
+  if (!confirm2) return;
+
+  try {
+    const data = await apiPost('/api/walas/reset', {});
+    alert('✅ ' + data.message);
+    loadDashboard();
+    loadStudents();
+  } catch (error) {
+    alert('❌ Gagal reset: ' + error.message);
   }
 }

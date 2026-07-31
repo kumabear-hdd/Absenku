@@ -676,7 +676,7 @@ app.get('/api/walas/dashboard', requireRole('subadmin'), (req, res) => {
   const totalStudents = students.length;
 
   const todayAttendances = getAll(`
-    SELECT a.*, s.name as student_name, s.nis
+    SELECT a.*, s.name as student_name, s.nis as nisn
     FROM attendances a
     JOIN students s ON a.student_id = s.id
     WHERE s.class = ? AND a.date = ?
@@ -710,9 +710,9 @@ app.get('/api/walas/students', requireRole('subadmin'), (req, res) => {
 
 app.post('/api/walas/students', requireRole('subadmin'), (req, res) => {
   const userClass = req.session.user.class;
-  const { nis, name, username, password, parentUsername, parentPassword, parentName } = req.body;
+  const { nisn, name, username, password, parentUsername, parentPassword, parentName } = req.body;
 
-  if (!nis || !name || !username || !password) {
+  if (!nisn || !name || !username || !password) {
     return res.status(400).json({ error: 'Data siswa tidak lengkap' });
   }
 
@@ -726,12 +726,12 @@ app.post('/api/walas/students', requireRole('subadmin'), (req, res) => {
       parentId = run('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)', [parentUsername, ortuHash, parentName, 'ortu']);
     }
 
-    run('INSERT INTO students (user_id, nis, name, class, parent_id) VALUES (?, ?, ?, ?, ?)', [siswaUserId, nis, name, userClass, parentId]);
+    run('INSERT INTO students (user_id, nis, name, class, parent_id) VALUES (?, ?, ?, ?, ?)', [siswaUserId, nisn, name, userClass, parentId]);
 
     res.json({ success: true, message: 'Siswa berhasil ditambahkan' });
   } catch (error) {
     console.error('Add student error:', error);
-    res.status(400).json({ error: 'NIS atau username sudah digunakan' });
+    res.status(400).json({ error: 'NISN atau username sudah digunakan' });
   }
 });
 
@@ -754,6 +754,24 @@ app.delete('/api/walas/students/:id', requireRole('subadmin'), (req, res) => {
   run('DELETE FROM users WHERE id = ?', [student.user_id]);
 
   res.json({ success: true, message: 'Siswa berhasil dihapus' });
+});
+
+app.post('/api/walas/reset', requireRole('subadmin'), (req, res) => {
+  const userClass = req.session.user.class;
+
+  try {
+    const students = getAll('SELECT id FROM students WHERE class = ?', [userClass]);
+    students.forEach(s => {
+      run('DELETE FROM attendances WHERE student_id = ?', [s.id]);
+      run('DELETE FROM notifications WHERE student_id = ?', [s.id]);
+    });
+    run('DELETE FROM students WHERE class = ?', [userClass]);
+
+    res.json({ success: true, message: 'Database kelas berhasil di-reset. Semua data siswa dan absensi telah dihapus.' });
+  } catch (error) {
+    console.error('Reset error:', error);
+    res.status(500).json({ error: 'Gagal reset database' });
+  }
 });
 
 // ========================================
