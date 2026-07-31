@@ -716,10 +716,25 @@ app.get('/api/walas/students', requireRole('subadmin'), (req, res) => {
 
 app.post('/api/walas/students', requireRole('subadmin'), (req, res) => {
   const userClass = req.session.user.class;
+
+  if (!userClass) {
+    return res.status(400).json({ error: 'Akun wali kelas belum memiliki kelas yang ditugaskan. Hubungi admin.' });
+  }
+
   const { nisn, name, username, password, parentUsername, parentPassword, parentName } = req.body;
 
   if (!nisn || !name || !username || !password) {
     return res.status(400).json({ error: 'Data siswa tidak lengkap' });
+  }
+
+  const existingNisn = getOne('SELECT id FROM students WHERE nis = ?', [nisn]);
+  if (existingNisn) {
+    return res.status(400).json({ error: 'NISN sudah digunakan, silakan gunakan NISN lain' });
+  }
+
+  const existingUsername = getOne('SELECT id FROM users WHERE username = ?', [username]);
+  if (existingUsername) {
+    return res.status(400).json({ error: 'Username sudah digunakan, silakan gunakan username lain' });
   }
 
   try {
@@ -737,13 +752,7 @@ app.post('/api/walas/students', requireRole('subadmin'), (req, res) => {
     res.json({ success: true, message: 'Siswa berhasil ditambahkan' });
   } catch (error) {
     console.error('Add student error:', error.message);
-    if (error.message.includes('UNIQUE constraint failed: users.username')) {
-      res.status(400).json({ error: 'Username sudah digunakan, silakan gunakan username lain' });
-    } else if (error.message.includes('UNIQUE constraint failed: students.nis')) {
-      res.status(400).json({ error: 'NISN sudah digunakan, silakan gunakan NISN lain' });
-    } else {
-      res.status(400).json({ error: 'Gagal menambahkan siswa: ' + error.message });
-    }
+    res.status(400).json({ error: 'Gagal menambahkan siswa: ' + error.message });
   }
 });
 
