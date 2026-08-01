@@ -4,13 +4,20 @@
 // ========================================
 
 const API_BASE = '';
+const API_TIMEOUT = 10000;
+
+function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeoutId));
+}
 
 // ========================================
 // API Helper
 // ========================================
 
 async function apiGet(url, noRedirect = false) {
-  const res = await fetch(`${API_BASE}${url}`, {
+  const res = await fetchWithTimeout(`${API_BASE}${url}`, {
     credentials: 'include'
   });
   if (res.status === 401 && !noRedirect && !window.location.pathname.includes('login')) {
@@ -23,7 +30,7 @@ async function apiGet(url, noRedirect = false) {
 }
 
 async function apiPost(url, body) {
-  const res = await fetch(`${API_BASE}${url}`, {
+  const res = await fetchWithTimeout(`${API_BASE}${url}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -39,7 +46,7 @@ async function apiPost(url, body) {
 }
 
 async function apiPostForm(url, formData) {
-  const res = await fetch(`${API_BASE}${url}`, {
+  const res = await fetchWithTimeout(`${API_BASE}${url}`, {
     method: 'POST',
     credentials: 'include',
     body: formData

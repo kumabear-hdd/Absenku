@@ -197,11 +197,17 @@ async function loadChildrenStatus() {
       `;
     }).join('');
 
-    // Tampilkan history section jika ada anak
     document.getElementById('historySection').style.display = 'block';
 
   } catch (error) {
     console.error('Load children status error:', error);
+    const container = document.getElementById('childrenStatus');
+    container.innerHTML = `
+      <div class="alert alert-error">
+        ❌ Gagal memuat data anak: ${error.message}
+        <button class="btn btn-outline" style="margin-top:8px;" onclick="loadChildrenStatus()">🔄 Coba Lagi</button>
+      </div>
+    `;
   }
 }
 
@@ -222,7 +228,6 @@ async function loadNotifications() {
     }
 
     container.innerHTML = data.notifications.map(n => {
-      // Extract location link from message if exists
       const mapsMatch = n.message.match(/(https:\/\/maps\.google\.com\/\?q=[\d.,]+)/);
       const mapsLink = mapsMatch ? mapsMatch[1] : null;
       const cleanMessage = n.message.replace(/📍.*/, '').trim();
@@ -247,6 +252,13 @@ async function loadNotifications() {
 
   } catch (error) {
     console.error('Load notifications error:', error);
+    const container = document.getElementById('notificationList');
+    container.innerHTML = `
+      <div class="alert alert-error">
+        ❌ Gagal memuat notifikasi: ${error.message}
+        <button class="btn btn-outline" style="margin-top:8px;" onclick="loadNotifications()">🔄 Coba Lagi</button>
+      </div>
+    `;
   }
 }
 
@@ -267,6 +279,9 @@ async function loadChildrenForSelect() {
 
       document.getElementById('historySection').style.display = 'block';
       document.getElementById('reportSection').style.display = 'block';
+    } else {
+      document.getElementById('historySection').style.display = 'none';
+      document.getElementById('reportSection').style.display = 'none';
     }
   } catch (error) {
     console.error('Load children select error:', error);
