@@ -56,7 +56,7 @@
         <button class="btn btn-outline" onclick="showTab('students')" id="tabStudents">👥 Data Siswa</button>
         <button class="btn btn-outline" onclick="showTab('addStudent')" id="tabAddStudent">➕ Tambah Siswa</button>
         <button class="btn btn-outline" onclick="showTab('monthlyData')" id="tabMonthlyData">📊 Lihat Data</button>
-        <button class="btn btn-success" onclick="showTab('monthlyData'); setTimeout(loadMonthlyAttendance, 200);" id="btnUnduhLaporan" style="margin-left:auto;">💾 Unduh Rekap</button>
+        <button class="btn btn-success" onclick="unduhRekap()" id="btnUnduhLaporan" style="margin-left:auto;">💾 Unduh Rekap</button>
         <button class="btn btn-outline" onclick="switchBackToAdmin()" id="btnSwitchBack" style="border-color:var(--primary);color:var(--primary);">🔙 Kembali ke Admin</button>
         <button class="btn btn-outline" onclick="resetDatabase()" id="btnResetDb" style="color:var(--danger);border-color:var(--danger);">🗑️ Reset Database</button>
       </div>

@@ -422,6 +422,27 @@ async function loadMonthlyAttendance() {
 // DOWNLOAD LAPORAN HTML
 // ========================================
 
+async function unduhRekap() {
+  const month = document.getElementById('monthlyMonth').value;
+  const year = document.getElementById('monthlyYear').value;
+
+  try {
+    // Load data dulu
+    const data = await apiGet(`/api/walas/monthly-attendance?month=${month}&year=${year}`);
+    window._monthlyData = data;
+
+    if (!data.attendances || data.attendances.length === 0) {
+      alert('Tidak ada data absensi untuk diunduh. Pastikan bulan dan tahun yang dipilih memiliki data.');
+      return;
+    }
+
+    // Langsung download
+    downloadReportHTML();
+  } catch (error) {
+    alert('Gagal memuat data: ' + error.message);
+  }
+}
+
 function downloadReportHTML() {
   const data = window._monthlyData;
   if (!data || !data.attendances || data.attendances.length === 0) {
