@@ -40,6 +40,12 @@ function getMinuteWIB() {
   return getNowWIB().getUTCMinutes();
 }
 
+function getMonthName(month) {
+  const names = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  return names[month - 1] || '';
+}
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
@@ -472,6 +478,101 @@ app.get('/api/parent/history/:studentId', requireRole('ortu'), (req, res) => {
   res.json({ student, history, stats });
 });
 
+// GET /api/parent/report/monthly - Laporan absensi bulanan
+app.get('/api/parent/report/monthly', requireRole('ortu'), (req, res) => {
+  const parentId = req.session.user.id;
+  const studentId = parseInt(req.query.student_id);
+  const month = parseInt(req.query.month);
+  const year = parseInt(req.query.year);
+
+  if (!studentId || !month || !year) {
+    return res.status(400).json({ error: 'Parameter student_id, month, dan year wajib diisi' });
+  }
+
+  const student = getOne('SELECT * FROM students WHERE id = ? AND parent_id = ?', [studentId, parentId]);
+  if (!student) {
+    return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
+  }
+
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
+
+  const attendances = getAll(`
+    SELECT * FROM attendances
+    WHERE student_id = ? AND date BETWEEN ? AND ?
+    ORDER BY date ASC
+  `, [studentId, startDate, endDate]);
+
+  const stats = getOne(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+      SUM(CASE WHEN status = 'terlambat' THEN 1 ELSE 0 END) as terlambat,
+      SUM(CASE WHEN status = 'izin' THEN 1 ELSE 0 END) as izin,
+      SUM(CASE WHEN status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+      SUM(CASE WHEN status = 'alpha' THEN 1 ELSE 0 END) as alpha
+    FROM attendances
+    WHERE student_id = ? AND date BETWEEN ? AND ?
+  `, [studentId, startDate, endDate]);
+
+  const monthName = getMonthName(month);
+  res.json({ student, month, year, monthName, attendances, stats });
+});
+
+// GET /api/parent/report/yearly - Laporan absensi tahunan
+app.get('/api/parent/report/yearly', requireRole('ortu'), (req, res) => {
+  const parentId = req.session.user.id;
+  const studentId = parseInt(req.query.student_id);
+  const year = parseInt(req.query.year);
+
+  if (!studentId || !year) {
+    return res.status(400).json({ error: 'Parameter student_id dan year wajib diisi' });
+  }
+
+  const student = getOne('SELECT * FROM students WHERE id = ? AND parent_id = ?', [studentId, parentId]);
+  if (!student) {
+    return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
+  }
+
+  const startDate = `${year}-01-01`;
+  const endDate = `${year}-12-31`;
+
+  const attendances = getAll(`
+    SELECT * FROM attendances
+    WHERE student_id = ? AND date BETWEEN ? AND ?
+    ORDER BY date ASC
+  `, [studentId, startDate, endDate]);
+
+  const stats = getOne(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+      SUM(CASE WHEN status = 'terlambat' THEN 1 ELSE 0 END) as terlambat,
+      SUM(CASE WHEN status = 'izin' THEN 1 ELSE 0 END) as izin,
+      SUM(CASE WHEN status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+      SUM(CASE WHEN status = 'alpha' THEN 1 ELSE 0 END) as alpha
+    FROM attendances
+    WHERE student_id = ? AND date BETWEEN ? AND ?
+  `, [studentId, startDate, endDate]);
+
+  const monthlyStats = getAll(`
+    SELECT
+      strftime('%m', date) as month,
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+      SUM(CASE WHEN status = 'terlambat' THEN 1 ELSE 0 END) as terlambat,
+      SUM(CASE WHEN status = 'izin' THEN 1 ELSE 0 END) as izin,
+      SUM(CASE WHEN status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+      SUM(CASE WHEN status = 'alpha' THEN 1 ELSE 0 END) as alpha
+    FROM attendances
+    WHERE student_id = ? AND date BETWEEN ? AND ?
+    GROUP BY strftime('%m', date)
+    ORDER BY month ASC
+  `, [studentId, startDate, endDate]);
+
+  res.json({ student, year, attendances, stats, monthlyStats });
+});
+
 // ========================================
 // API: ADMIN
 // ========================================
@@ -649,12 +750,12 @@ app.post('/api/admin/login-as/:id', requireRole('admin'), (req, res) => {
 // POST /api/admin/switch-back - Admin kembali ke akun admin
 app.post('/api/admin/switch-back', requireAuth, (req, res) => {
   const prevAdmin = req.session.prevAdmin;
-  if (prevAdmin) {
+  if (prevAdmin && prevAdmin.role === 'admin') {
     req.session.user = prevAdmin;
     delete req.session.prevAdmin;
     return res.json({ success: true, message: 'Berhasil kembali ke akun admin', redirect: '/admin.html' });
   }
-  res.json({ success: true, message: 'Sesi admin tidak ditemukan', redirect: '/login.html' });
+  res.status(403).json({ error: 'Anda tidak memiliki akses untuk kembali ke admin' });
 });
 
 // POST /api/admin/reset - Reset database (hapus semua data)

@@ -24,6 +24,10 @@ let childrenData = [];
 
   // Koneksi Socket.io
   initSocket();
+
+  // Toggle filter bulan/tahun berdasarkan periode
+  document.getElementById('reportPeriod').addEventListener('change', toggleReportFilters);
+  toggleReportFilters();
 })();
 
 // ========================================
@@ -250,13 +254,19 @@ async function loadChildrenForSelect() {
   try {
     const data = await apiGet('/api/parent/children');
     const select = document.getElementById('childSelect');
+    const reportSelect = document.getElementById('reportChildSelect');
 
     if (data.children.length > 0) {
-      select.innerHTML = data.children.map(c =>
+      const options = data.children.map(c =>
         `<option value="${c.id}">${c.name} - Kelas ${c.class}</option>`
       ).join('');
+      select.innerHTML = options;
+      reportSelect.innerHTML = options;
 
       loadChildHistory();
+
+      document.getElementById('historySection').style.display = 'block';
+      document.getElementById('reportSection').style.display = 'block';
     }
   } catch (error) {
     console.error('Load children select error:', error);
@@ -339,3 +349,200 @@ async function loadChildHistory() {
     console.error('Load child history error:', error);
   }
 }
+
+// ========================================
+// LAPORAN ABSENSI
+// ========================================
+
+function updateReportYearSelect() {
+  const select = document.getElementById('reportYear');
+  const currentYear = new Date().getFullYear();
+  let options = '';
+  for (let y = currentYear; y >= currentYear - 5; y--) {
+    options += `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`;
+  }
+  select.innerHTML = options;
+}
+
+function toggleReportFilters() {
+  const period = document.getElementById('reportPeriod').value;
+  const monthFilter = document.getElementById('monthFilter');
+  if (monthFilter) {
+    monthFilter.style.display = period === 'monthly' ? '' : 'none';
+  }
+}
+
+async function generateReport() {
+  const studentId = document.getElementById('reportChildSelect').value;
+  const period = document.getElementById('reportPeriod').value;
+  const month = document.getElementById('reportMonth').value;
+  const year = document.getElementById('reportYear').value;
+  const container = document.getElementById('reportContainer');
+
+  if (!studentId) {
+    alert('Pilih anak terlebih dahulu');
+    return;
+  }
+
+  container.innerHTML = '<div class="loading"><div class="spinner"></div>Memuat laporan...</div>';
+
+  try {
+    let url;
+    if (period === 'monthly') {
+      url = `/api/parent/report/monthly?student_id=${studentId}&month=${month}&year=${year}`;
+    } else {
+      url = `/api/parent/report/yearly?student_id=${studentId}&year=${year}`;
+    }
+
+    const data = await apiGet(url);
+    renderReport(data, period);
+  } catch (error) {
+    container.innerHTML = `<div class="alert alert-error">Gagal memuat laporan: ${error.message}</div>`;
+  }
+}
+
+function renderReport(data, period) {
+  const container = document.getElementById('reportContainer');
+  const student = data.student;
+  const stats = data.stats;
+
+  let html = `
+    <div class="printable-report" id="printableReport">
+      <h2>📋 Laporan Absensi</h2>
+      <div class="report-subtitle">Sekolah AbsenKu</div>
+      <div class="report-info">
+        <div><strong>Nama:</strong> ${student.name}</div>
+        <div><strong>NIS:</strong> ${student.nis}</div>
+        <div><strong>Kelas:</strong> ${student.class}</div>
+      </div>
+  `;
+
+  if (period === 'monthly') {
+    html += `
+      <div class="report-info">
+        <div><strong>Periode:</strong> ${data.monthName} ${data.year}</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-box total"><div class="label">Total</div><div class="value">${stats.total || 0}</div></div>
+        <div class="stat-box hadir"><div class="label">Hadir</div><div class="value">${stats.hadir || 0}</div></div>
+        <div class="stat-box terlambat"><div class="label">Terlambat</div><div class="value">${stats.terlambat || 0}</div></div>
+        <div class="stat-box izin"><div class="label">Izin</div><div class="value">${stats.izin || 0}</div></div>
+        <div class="stat-box sakit"><div class="label">Sakit</div><div class="value">${stats.sakit || 0}</div></div>
+        <div class="stat-box alpha"><div class="label">Alpha</div><div class="value">${stats.alpha || 0}</div></div>
+      </div>
+      <table>
+        <thead><tr><th>Tanggal</th><th>Masuk</th><th>Pulang</th><th>Status</th></tr></thead>
+        <tbody>
+    `;
+    data.attendances.forEach(a => {
+      html += `
+        <tr>
+          <td>${formatDate(a.date)}</td>
+          <td>${a.check_in_time || '-'}</td>
+          <td>${a.check_out_time || '-'}</td>
+          <td>${getStatusBadge(a.status)}</td>
+        </tr>
+      `;
+    });
+    html += `</tbody></table>`;
+  } else {
+    html += `
+      <div class="report-info">
+        <div><strong>Periode:</strong> Tahun ${data.year}</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-box total"><div class="label">Total</div><div class="value">${stats.total || 0}</div></div>
+        <div class="stat-box hadir"><div class="label">Hadir</div><div class="value">${stats.hadir || 0}</div></div>
+        <div class="stat-box terlambat"><div class="label">Terlambat</div><div class="value">${stats.terlambat || 0}</div></div>
+        <div class="stat-box izin"><div class="label">Izin</div><div class="value">${stats.izin || 0}</div></div>
+        <div class="stat-box sakit"><div class="label">Sakit</div><div class="value">${stats.sakit || 0}</div></div>
+        <div class="stat-box alpha"><div class="label">Alpha</div><div class="value">${stats.alpha || 0}</div></div>
+      </div>
+      <table>
+        <thead><tr><th>Bulan</th><th>Total</th><th>Hadir</th><th>Terlambat</th><th>Izin</th><th>Sakit</th><th>Alpha</th></tr></thead>
+        <tbody>
+    `;
+    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    data.monthlyStats.forEach(m => {
+      html += `
+        <tr>
+          <td>${monthNames[parseInt(m.month) - 1]}</td>
+          <td>${m.total}</td>
+          <td>${m.hadir}</td>
+          <td>${m.terlambat}</td>
+          <td>${m.izin}</td>
+          <td>${m.sakit}</td>
+          <td>${m.alpha}</td>
+        </tr>
+      `;
+    });
+    html += `</tbody></table>`;
+  }
+
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+function downloadReportHTML() {
+  const report = document.getElementById('printableReport');
+  if (!report) {
+    alert('Tampilkan laporan terlebih dahulu');
+    return;
+  }
+
+  const student = document.getElementById('reportChildSelect');
+  const studentName = student.options[student.selectedIndex]?.text || 'Laporan';
+  const period = document.getElementById('reportPeriod').value;
+  const month = document.getElementById('reportMonth');
+  const year = document.getElementById('reportYear').value;
+
+  let title = `Laporan Absensi ${studentName}`;
+  if (period === 'monthly') {
+    title += ` - ${month.options[month.selectedIndex].text} ${year}`;
+  } else {
+    title += ` - Tahun ${year}`;
+  }
+
+  const html = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>${title}</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+    h2 { text-align: center; }
+    .report-subtitle { text-align: center; color: #666; margin-bottom: 16px; font-size: 14px; }
+    .report-info { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+    th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
+    th { background: #f5f5f5; font-weight: 600; }
+    .stat-row { display: flex; gap: 12px; margin-bottom: 16px; }
+    .stat-box { flex: 1; padding: 10px; border-radius: 6px; text-align: center; border: 1px solid #ddd; }
+    .stat-box .label { font-size: 11px; color: #666; text-transform: uppercase; }
+    .stat-box .value { font-size: 20px; font-weight: 700; }
+    .stat-box.hadir { background: #dcfce7; }
+    .stat-box.terlambat { background: #fef3c7; }
+    .stat-box.izin { background: #dbeafe; }
+    .stat-box.sakit { background: #fce7f3; }
+    .stat-box.alpha { background: #fee2e2; }
+    .stat-box.total { background: #f3f4f6; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>${report.innerHTML}</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${title.replace(/\s+/g, '_')}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Init report year select on load
+updateReportYearSelect();

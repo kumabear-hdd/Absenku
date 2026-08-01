@@ -161,6 +161,7 @@ async function loginAsSubadmin(id) {
   try {
     const data = await apiPost('/api/admin/login-as/' + id, {});
     if (data.redirect) {
+      sessionStorage.setItem('impersonated', 'true');
       window.location.href = data.redirect;
     }
   } catch (error) {

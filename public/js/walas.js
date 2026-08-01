@@ -22,15 +22,17 @@ let waliClass = null;
     document.getElementById('navbar').innerHTML = buildNavbar(currentUser);
     document.getElementById('todayDate').textContent = getTodayFormatted();
 
-    waliClass = currentUser.class || null;
+     waliClass = currentUser.class || null;
 
-    if (!waliClass) {
-      showWalasError('Akun wali kelas belum memiliki kelas yang ditugaskan. Hubungi admin untuk mengatur kelas Anda.');
-      return;
-    }
+     if (!waliClass) {
+       showWalasError('Akun wali kelas belum memiliki kelas yang ditugaskan. Hubungi admin untuk mengatur kelas Anda.');
+       return;
+     }
 
-    await loadDashboard();
-    await loadStudents();
+     updateSwitchBackButton();
+
+     await loadDashboard();
+     await loadStudents();
   } catch (error) {
     console.error('Init error:', error);
     showWalasError('Gagal memuat dashboard: ' + error.message);
@@ -51,10 +53,23 @@ async function switchBackToAdmin() {
   try {
     const data = await apiPost('/api/admin/switch-back', {});
     if (data.redirect) {
+      sessionStorage.removeItem('impersonated');
       window.location.href = data.redirect;
     }
   } catch (error) {
-    alert('Gagal kembali ke admin: ' + error.message);
+    if (error.message.includes('403') || error.message.includes('tidak memiliki akses')) {
+      alert('Anda tidak memiliki akses untuk kembali ke admin.');
+    } else {
+      alert('Gagal kembali ke admin: ' + error.message);
+    }
+  }
+}
+
+// Show/hide the switch-back button based on impersonation state
+function updateSwitchBackButton() {
+  const btn = document.getElementById('btnSwitchBack');
+  if (btn) {
+    btn.style.display = sessionStorage.getItem('impersonated') === 'true' ? '' : 'none';
   }
 }
 
