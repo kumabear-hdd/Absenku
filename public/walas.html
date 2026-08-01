@@ -57,7 +57,7 @@
         <button class="btn btn-outline" onclick="showTab('addStudent')" id="tabAddStudent">➕ Tambah Siswa</button>
         <button class="btn btn-outline" onclick="showTab('monthlyData')" id="tabMonthlyData">📊 Lihat Data</button>
         <button class="btn btn-outline" onclick="switchBackToAdmin()" id="btnSwitchBack" style="margin-left:auto;border-color:var(--primary);color:var(--primary);">🔙 Kembali ke Admin</button>
-        <button class="btn btn-outline" onclick="resetDatabase()" style="color:var(--danger);border-color:var(--danger);">🗑️ Reset Database</button>
+        <button class="btn btn-outline" onclick="resetDatabase()" id="btnResetDb" style="color:var(--danger);border-color:var(--danger);">🗑️ Reset Database</button>
       </div>
 
       <!-- Tab: Attendance Today -->
@@ -205,7 +205,7 @@
               <select class="form-control" style="width:auto;" id="monthlyYear"></select>
             </div>
             <button class="btn btn-primary" onclick="loadMonthlyAttendance()">📊 Tampilkan</button>
-            <button class="btn btn-outline" onclick="downloadReportHTML()">💾 Unduh Laporan</button>
+            <button class="btn btn-outline" onclick="downloadReportHTML()" id="btnUnduhLaporan">💾 Unduh Laporan</button>
           </div>
 
           <!-- Stats -->

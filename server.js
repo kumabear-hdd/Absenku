@@ -682,7 +682,7 @@ app.get('/api/admin/parents', requireRole('admin'), (req, res) => {
 // GET /api/admin/subadmins - Daftar semua subadmin
 app.get('/api/admin/subadmins', requireRole('admin'), (req, res) => {
   const subadmins = getAll(`
-    SELECT u.id, u.username, u.name, u.role,
+    SELECT u.id, u.username, u.name, u.role, u.created_at,
            GROUP_CONCAT(s.class, ', ') as classes
     FROM users u
     LEFT JOIN students s ON u.id = s.user_id

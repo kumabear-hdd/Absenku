@@ -65,12 +65,16 @@ async function switchBackToAdmin() {
   }
 }
 
-// Show/hide the switch-back button based on impersonation state
+// Show/hide buttons based on impersonation state
 function updateSwitchBackButton() {
-  const btn = document.getElementById('btnSwitchBack');
-  if (btn) {
-    btn.style.display = sessionStorage.getItem('impersonated') === 'true' ? '' : 'none';
-  }
+  const isImpersonated = sessionStorage.getItem('impersonated') === 'true';
+  const btnSwitch = document.getElementById('btnSwitchBack');
+  const btnReset = document.getElementById('btnResetDb');
+  const btnUnduh = document.getElementById('btnUnduhLaporan');
+
+  if (btnSwitch) btnSwitch.style.display = isImpersonated ? '' : 'none';
+  if (btnReset) btnReset.style.display = isImpersonated ? 'none' : '';
+  if (btnUnduh) btnUnduh.style.display = isImpersonated ? 'none' : '';
 }
 
 // Load dashboard data
