@@ -178,10 +178,12 @@ function showTab(tab) {
   document.getElementById('contentAttendance').style.display = 'none';
   document.getElementById('contentStudents').style.display = 'none';
   document.getElementById('contentAddStudent').style.display = 'none';
+  document.getElementById('contentMonthlyData').style.display = 'none';
 
   document.getElementById('tabAttendance').className = 'btn btn-outline';
   document.getElementById('tabStudents').className = 'btn btn-outline';
   document.getElementById('tabAddStudent').className = 'btn btn-outline';
+  document.getElementById('tabMonthlyData').className = 'btn btn-outline';
 
   switch (tab) {
     case 'attendance':
@@ -197,6 +199,11 @@ function showTab(tab) {
     case 'addStudent':
       document.getElementById('contentAddStudent').style.display = 'block';
       document.getElementById('tabAddStudent').className = 'btn btn-primary';
+      break;
+    case 'monthlyData':
+      document.getElementById('contentMonthlyData').style.display = 'block';
+      document.getElementById('tabMonthlyData').className = 'btn btn-primary';
+      initMonthlyYearSelect();
       break;
   }
 }
@@ -288,5 +295,118 @@ async function resetDatabase() {
     loadStudents();
   } catch (error) {
     alert('❌ Gagal reset: ' + error.message);
+  }
+}
+
+// ========================================
+// REKAP ABSENSI BULANAN
+// ========================================
+
+function initMonthlyYearSelect() {
+  const select = document.getElementById('monthlyYear');
+  if (select.options.length > 0) return; // Sudah di-init
+
+  const currentYear = new Date().getFullYear();
+  let options = '';
+  for (let y = currentYear; y >= currentYear - 5; y--) {
+    options += `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`;
+  }
+  select.innerHTML = options;
+
+  // Set bulan default ke bulan sekarang
+  const currentMonth = new Date().getMonth() + 1;
+  document.getElementById('monthlyMonth').value = currentMonth;
+}
+
+async function loadMonthlyAttendance() {
+  const month = document.getElementById('monthlyMonth').value;
+  const year = document.getElementById('monthlyYear').value;
+  const tbody = document.getElementById('monthlyTableBody');
+  const statsDiv = document.getElementById('monthlyStats');
+
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="7" class="loading">
+        <div class="spinner"></div>
+        Memuat data...
+      </td>
+    </tr>
+  `;
+
+  try {
+    const data = await apiGet(`/api/walas/monthly-attendance?month=${month}&year=${year}`);
+
+    // Render stats
+    if (data.stats) {
+      const s = data.stats;
+      statsDiv.innerHTML = `
+        <div class="stat-card">
+          <div class="stat-icon blue">📊</div>
+          <div class="stat-info">
+            <h3>${s.total || 0}</h3>
+            <p>Total Absensi</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">✅</div>
+          <div class="stat-info">
+            <h3>${s.hadir || 0}</h3>
+            <p>Hadir</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon yellow">⏰</div>
+          <div class="stat-info">
+            <h3>${s.terlambat || 0}</h3>
+            <p>Terlambat</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon red">❌</div>
+          <div class="stat-info">
+            <h3>${(s.izin || 0) + (s.sakit || 0)}</h3>
+            <p>Izin/Sakit</p>
+          </div>
+        </div>
+      `;
+    }
+
+    // Render tabel
+    if (data.attendances.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="empty-state">
+            <div class="empty-icon">📋</div>
+            <h3>Belum ada data absensi</h3>
+            <p>Tidak ada data absensi untuk ${data.monthName} ${data.year}</p>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = data.attendances.map((a, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${formatDate(a.date)}</strong></td>
+        <td>${a.student_name}</td>
+        <td>${a.nisn || '-'}</td>
+        <td>${a.check_in_time || '-'}</td>
+        <td>${a.check_out_time || '-'}</td>
+        <td>${getStatusBadge(a.status)}</td>
+      </tr>
+    `).join('');
+
+  } catch (error) {
+    console.error('Load monthly attendance error:', error);
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="empty-state">
+          <div class="empty-icon">⚠️</div>
+          <h3>Gagal memuat data</h3>
+          <p>${error.message}</p>
+        </td>
+      </tr>
+    `;
   }
 }

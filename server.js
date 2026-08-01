@@ -914,6 +914,44 @@ app.delete('/api/walas/students/:id', requireRole('subadmin'), (req, res) => {
   res.json({ success: true, message: 'Siswa berhasil dihapus' });
 });
 
+// GET /api/walas/monthly-attendance - Rekap absensi bulanan per kelas
+app.get('/api/walas/monthly-attendance', requireRole('subadmin'), (req, res) => {
+  const userClass = req.session.user.class;
+  const userId = req.session.user.id;
+  const now = new Date();
+  const month = parseInt(req.query.month) || (now.getMonth() + 1);
+  const year = parseInt(req.query.year) || now.getFullYear();
+
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
+
+  const students = getAll('SELECT id, nis, name FROM students WHERE class = ? AND user_id != ? ORDER BY name', [userClass, userId]);
+
+  const attendances = getAll(`
+    SELECT a.*, s.name as student_name, s.nis as nisn
+    FROM attendances a
+    JOIN students s ON a.student_id = s.id
+    WHERE s.class = ? AND s.user_id != ? AND a.date BETWEEN ? AND ?
+    ORDER BY a.date ASC, s.name ASC
+  `, [userClass, userId, startDate, endDate]);
+
+  const stats = getOne(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN a.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+      SUM(CASE WHEN a.status = 'terlambat' THEN 1 ELSE 0 END) as terlambat,
+      SUM(CASE WHEN a.status = 'izin' THEN 1 ELSE 0 END) as izin,
+      SUM(CASE WHEN a.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+      SUM(CASE WHEN a.status = 'alpha' THEN 1 ELSE 0 END) as alpha
+    FROM attendances a
+    JOIN students s ON a.student_id = s.id
+    WHERE s.class = ? AND s.user_id != ? AND a.date BETWEEN ? AND ?
+  `, [userClass, userId, startDate, endDate]);
+
+  const monthName = getMonthName(month);
+  res.json({ month, year, monthName, className: userClass, students, attendances, stats });
+});
+
 app.post('/api/walas/reset', requireRole('subadmin'), (req, res) => {
   const userClass = req.session.user.class;
 
