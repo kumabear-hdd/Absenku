@@ -336,6 +336,9 @@ async function loadMonthlyAttendance() {
   try {
     const data = await apiGet(`/api/walas/monthly-attendance?month=${month}&year=${year}`);
 
+    // Simpan data untuk cetak
+    window._monthlyData = data;
+
     // Render stats
     if (data.stats) {
       const s = data.stats;
@@ -409,4 +412,303 @@ async function loadMonthlyAttendance() {
       </tr>
     `;
   }
+}
+
+// ========================================
+// DOWNLOAD LAPORAN HTML
+// ========================================
+
+function downloadReportHTML() {
+  const data = window._monthlyData;
+  if (!data || !data.attendances || data.attendances.length === 0) {
+    alert('Tampilkan data terlebih dahulu dengan klik "📊 Tampilkan"');
+    return;
+  }
+
+  const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  const monthName = monthNames[parseInt(data.month) - 1];
+  const title = `Rekap Absensi Kelas ${data.className} - ${monthName} ${data.year}`;
+
+  const stats = data.stats || {};
+  const attendances = data.attendances;
+
+  // Kelompokkan data per siswa
+  const studentMap = {};
+  attendances.forEach(a => {
+    if (!studentMap[a.student_name]) {
+      studentMap[a.student_name] = { nisn: a.nisn, records: [] };
+    }
+    studentMap[a.student_name].records.push(a);
+  });
+
+  const statusBadgeHTML = (status) => {
+    const colors = {
+      'hadir': { bg: '#dcfce7', color: '#166534', text: 'Hadir' },
+      'terlambat': { bg: '#fef3c7', color: '#92400E', text: 'Terlambat' },
+      'izin': { bg: '#dbeafe', color: '#1e40af', text: 'Izin' },
+      'sakit': { bg: '#fce7f3', color: '#9d174d', text: 'Sakit' },
+      'alpha': { bg: '#fee2e2', color: '#991b1b', text: 'Alpha' }
+    };
+    const s = colors[status] || { bg: '#f3f4f6', color: '#374151', text: status || '-' };
+    return `<span style="background:${s.bg};color:${s.color};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">${s.text}</span>`;
+  };
+
+  // Buat baris tabel per siswa
+  let tableRows = '';
+  let no = 1;
+  for (const [name, info] of Object.entries(studentMap)) {
+    info.records.forEach((r, idx) => {
+      tableRows += `
+        <tr>
+          ${idx === 0 ? `<td rowspan="${info.records.length}" style="text-align:center;font-weight:700;vertical-align:middle;">${no}</td>` : ''}
+          ${idx === 0 ? `<td rowspan="${info.records.length}" style="font-weight:600;vertical-align:middle;">${name}</td>` : ''}
+          ${idx === 0 ? `<td rowspan="${info.records.length}" style="text-align:center;vertical-align:middle;">${info.nisn || '-'}</td>` : ''}
+          <td style="text-align:center;">${r.date || '-'}</td>
+          <td style="text-align:center;">${r.check_in_time || '-'}</td>
+          <td style="text-align:center;">${r.check_out_time || '-'}</td>
+          <td style="text-align:center;">${statusBadgeHTML(r.status)}</td>
+        </tr>
+      `;
+    });
+    no++;
+  }
+
+  const html = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <style>
+    @page { size: A4 landscape; margin: 15mm; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      background: #fff; color: #1a1a2e; line-height: 1.6;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+
+    .page { max-width: 1100px; margin: 0 auto; padding: 30px 40px; }
+
+    /* Header */
+    .doc-header {
+      background: linear-gradient(135deg, #0a1628, #16213e);
+      color: #fff; padding: 25px 30px; border-radius: 12px;
+      margin-bottom: 24px; position: relative; overflow: hidden;
+    }
+    .doc-header::after {
+      content: ''; position: absolute; top: 0; right: 0;
+      width: 40%; height: 100%;
+      background: radial-gradient(ellipse at right, rgba(233,69,96,0.1), transparent 70%);
+    }
+    .doc-header .school-tag {
+      font-size: 10px; color: rgba(255,255,255,0.5);
+      letter-spacing: 3px; text-transform: uppercase; margin-bottom: 6px;
+    }
+    .doc-header h1 {
+      font-size: 22px; font-weight: 800; margin-bottom: 4px;
+      position: relative; z-index: 1;
+    }
+    .doc-header .subtitle {
+      font-size: 13px; color: rgba(255,255,255,0.6);
+      position: relative; z-index: 1;
+    }
+    .doc-header .period-badge {
+      position: absolute; top: 25px; right: 30px;
+      background: #e94560; color: #fff; padding: 6px 16px;
+      border-radius: 8px; font-size: 13px; font-weight: 700; z-index: 1;
+    }
+
+    /* Info */
+    .doc-info {
+      display: flex; gap: 20px; margin-bottom: 20px;
+    }
+    .info-card {
+      flex: 1; background: #f8fafc; border: 1px solid #e2e8f0;
+      border-radius: 10px; padding: 14px 18px;
+    }
+    .info-card .label {
+      font-size: 9px; color: #e94560; font-weight: 700;
+      letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px;
+    }
+    .info-card .value { font-size: 18px; font-weight: 800; color: #16213e; }
+
+    /* Stats Row */
+    .stat-row { display: flex; gap: 12px; margin-bottom: 20px; }
+    .stat-box {
+      flex: 1; padding: 12px; border-radius: 8px; text-align: center;
+      border: 1px solid #e2e8f0;
+    }
+    .stat-box .stat-label {
+      font-size: 10px; color: #666; text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 4px;
+    }
+    .stat-box .stat-value { font-size: 22px; font-weight: 800; }
+    .stat-box.total { background: #f3f4f6; }
+    .stat-box.total .stat-value { color: #16213e; }
+    .stat-box.hadir { background: #dcfce7; }
+    .stat-box.hadir .stat-value { color: #166534; }
+    .stat-box.terlambat { background: #fef3c7; }
+    .stat-box.terlambat .stat-value { color: #92400E; }
+    .stat-box.izin { background: #dbeafe; }
+    .stat-box.izin .stat-value { color: #1e40af; }
+    .stat-box.alpha { background: #fee2e2; }
+    .stat-box.alpha .stat-value { color: #991b1b; }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th {
+      background: #16213e; color: #fff; padding: 10px 12px;
+      font-size: 11px; font-weight: 700; text-align: left;
+    }
+    th:first-child { border-radius: 8px 0 0 0; }
+    th:last-child { border-radius: 0 8px 0 0; }
+    td {
+      padding: 8px 12px; border-bottom: 1px solid #e2e8f0;
+      color: #475569; line-height: 1.5;
+    }
+    tr:nth-child(even) { background: #f8fafc; }
+    tr:hover { background: #f0f4ff; }
+
+    /* Footer */
+    .doc-footer {
+      margin-top: 30px; padding-top: 16px;
+      border-top: 2px solid #e2e8f0;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .doc-footer .note {
+      font-size: 10px; color: #999; font-style: italic;
+    }
+    .doc-footer .generated {
+      font-size: 10px; color: #999;
+    }
+
+    /* Signature */
+    .sig-area {
+      margin-top: 40px; display: flex; justify-content: flex-end;
+    }
+    .sig-block { text-align: center; min-width: 200px; }
+    .sig-block .sig-title {
+      font-size: 11px; color: #16213e; font-weight: 700;
+      margin-bottom: 50px;
+    }
+    .sig-block .sig-name {
+      font-size: 12px; font-weight: 800; color: #16213e;
+      border-top: 2px solid #1a1a2e; padding-top: 6px; display: inline-block;
+    }
+    .sig-block .sig-role { font-size: 10px; color: #888; margin-top: 3px; }
+
+    @media print {
+      body { background: #fff; }
+      .page { padding: 0; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- Header -->
+    <div class="doc-header">
+      <div class="school-tag">ABSENKU — SISTEM ABSENSI SISWA</div>
+      <h1>📊 Rekap Absensi Bulanan</h1>
+      <div class="subtitle">Kelas ${data.className} • Wali Kelas: ${currentUser ? currentUser.name : '-'}</div>
+      <div class="period-badge">${monthName} ${data.year}</div>
+    </div>
+
+    <!-- Info -->
+    <div class="doc-info">
+      <div class="info-card">
+        <div class="label">Kelas</div>
+        <div class="value">${data.className}</div>
+      </div>
+      <div class="info-card">
+        <div class="label">Periode</div>
+        <div class="value">${monthName} ${data.year}</div>
+      </div>
+      <div class="info-card">
+        <div class="label">Total Siswa</div>
+        <div class="value">${Object.keys(studentMap).length}</div>
+      </div>
+      <div class="info-card">
+        <div class="label">Total Data Absensi</div>
+        <div class="value">${stats.total || 0}</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stat-row">
+      <div class="stat-box total">
+        <div class="stat-label">Total</div>
+        <div class="stat-value">${stats.total || 0}</div>
+      </div>
+      <div class="stat-box hadir">
+        <div class="stat-label">Hadir</div>
+        <div class="stat-value">${stats.hadir || 0}</div>
+      </div>
+      <div class="stat-box terlambat">
+        <div class="stat-label">Terlambat</div>
+        <div class="stat-value">${stats.terlambat || 0}</div>
+      </div>
+      <div class="stat-box izin">
+        <div class="stat-label">Izin / Sakit</div>
+        <div class="stat-value">${(stats.izin || 0) + (stats.sakit || 0)}</div>
+      </div>
+      <div class="stat-box alpha">
+        <div class="stat-label">Alpha</div>
+        <div class="stat-value">${stats.alpha || 0}</div>
+      </div>
+    </div>
+
+    <!-- Tabel Rekap -->
+    <table>
+      <thead>
+        <tr>
+          <th style="width:40px;text-align:center;">No</th>
+          <th>Nama Siswa</th>
+          <th style="width:90px;text-align:center;">NISN</th>
+          <th style="width:110px;text-align:center;">Tanggal</th>
+          <th style="width:90px;text-align:center;">Jam Masuk</th>
+          <th style="width:90px;text-align:center;">Jam Pulang</th>
+          <th style="width:90px;text-align:center;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${tableRows}
+      </tbody>
+    </table>
+
+    <!-- Footer -->
+    <div class="doc-footer">
+      <div class="note">Dokumen ini dicetak dari sistem AbsenKu dan merupakan dokumen resmi rekap absensi.</div>
+      <div class="generated">Dicetak: ${new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+    </div>
+
+    <!-- Tanda Tangan -->
+    <div class="sig-area">
+      <div class="sig-block">
+        <div class="sig-title">Wali Kelas ${data.className}</div>
+        <div class="sig-name">${currentUser ? currentUser.name : '...................'}</div>
+        <div class="sig-role">Wali Kelas</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Auto-print setelah halaman dimuat
+    window.onload = function() { window.print(); };
+  </script>
+</body>
+</html>`;
+
+  // Download sebagai file HTML
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${title.replace(/\s+/g, '_')}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
