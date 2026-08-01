@@ -624,15 +624,49 @@ function downloadReportHTML() {
     }
     .sig-block .sig-role { font-size: 10px; color: #888; margin-top: 3px; }
 
+    /* Navbar & Save Button */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0;
+      background: linear-gradient(135deg, #0a1628, #16213e);
+      padding: 10px 30px;
+      display: flex; align-items: center; justify-content: space-between;
+      z-index: 1000; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .navbar-brand { color: #fff; font-size: 15px; font-weight: 700; }
+    .navbar-brand span { color: #e94560; }
+    .save-pdf-btn {
+      position: fixed; bottom: 30px; right: 30px; z-index: 999;
+      background: linear-gradient(135deg, #e94560, #c23152);
+      color: #fff; border: none; padding: 16px 28px; border-radius: 50px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 8px 30px rgba(233,69,96,0.4);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .save-pdf-btn:hover { transform: translateY(-3px); }
+    .save-pdf-btn svg { width: 20px; height: 20px; }
+
     @media print {
       body { background: #fff; }
-      .page { padding: 0; }
+      .page { padding: 0; margin-top: 0; }
       .no-print { display: none !important; }
     }
   </style>
 </head>
 <body>
-  <div class="page">
+  <!-- Navbar -->
+  <nav class="navbar no-print">
+    <div class="navbar-brand">Rekap Absensi <span>AbsenKu</span></div>
+  </nav>
+
+  <!-- Save as PDF Button -->
+  <button class="save-pdf-btn no-print" id="savePdfBtn" onclick="saveAsPDF()">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+    <span id="btnLabel">Save as PDF</span>
+  </button>
+
+  <div class="page" style="margin-top: 60px;">
     <!-- Header -->
     <div class="doc-header">
       <div class="school-tag">ABSENKU — SISTEM ABSENSI SISWA</div>
@@ -719,10 +753,48 @@ function downloadReportHTML() {
     </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>
   <script>
-    // Auto-print setelah halaman dimuat
-    window.onload = function() { window.print(); };
-  </script>
+    async function saveAsPDF() {
+      const btn = document.getElementById('savePdfBtn');
+      const btnLabel = document.getElementById('btnLabel');
+      btnLabel.textContent = 'Generating PDF...';
+      btn.disabled = true;
+      btn.style.opacity = '0.7';
+      btn.style.cursor = 'wait';
+
+      await new Promise(r => setTimeout(r, 300));
+
+      try {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const content = document.querySelector('.page');
+        const canvas = await html2canvas(content, {
+          scale: 2, useCORS: true, allowTaint: true,
+          backgroundColor: '#ffffff', logging: false
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.92);
+        const pdfW = pdf.internal.pageSize.getWidth();
+        const pdfH = pdf.internal.pageSize.getHeight();
+        const imgW = canvas.width;
+        const imgH = canvas.height;
+        const ratio = Math.min(pdfW / imgW, pdfH / imgH);
+        const w = imgW * ratio;
+        const h = imgH * ratio;
+        pdf.addImage(imgData, 'JPEG', (pdfW - w) / 2, 5, w, h);
+        pdf.save('${title.replace(/'/g, "\\'")}.pdf');
+      } catch (err) {
+        console.error('PDF error:', err);
+        alert('Error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btnLabel.textContent = 'Save as PDF';
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+      }
+    }
+  <\/script>
 </body>
 </html>`;
 
