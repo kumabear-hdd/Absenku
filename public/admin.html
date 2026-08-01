@@ -47,7 +47,6 @@
       <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
         <button class="btn btn-primary" onclick="showTab('waliKelas')" id="tabWaliKelas">👨‍🏫 Daftar Wali Kelas</button>
         <button class="btn btn-outline" onclick="showTab('addWali')" id="tabAddWali">➕ Tambah Wali Kelas</button>
-        <button class="btn btn-outline" onclick="showTab('addSiswa')" id="tabAddSiswa">➕ Tambah Siswa</button>
         <button class="btn btn-outline" onclick="resetDatabase()" style="margin-left:auto;color:var(--danger);border-color:var(--danger);">🗑️ Reset Database</button>
       </div>
 
@@ -117,60 +116,6 @@
         </div>
       </div>
 
-      <!-- Tab: Tambah Siswa -->
-      <div id="contentAddSiswa" class="card" style="display: none;">
-        <div class="card-header">
-          <h2>➕ Tambah Siswa Baru</h2>
-        </div>
-        <div class="card-body">
-          <div id="addSiswaAlert" class="alert" style="display: none;"></div>
-          <form id="addSiswaForm">
-            <h3 style="margin-bottom: 16px; font-size: 16px; color: var(--gray-700);">👦 Data Siswa</h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-              <div class="form-group">
-                <label>NISN</label>
-                <input type="text" id="newSiswaNis" class="form-control" placeholder="Nomor Induk Siswa" required>
-              </div>
-              <div class="form-group">
-                <label>Nama Lengkap</label>
-                <input type="text" id="newSiswaName" class="form-control" placeholder="Nama lengkap" required>
-              </div>
-              <div class="form-group">
-                <label>Kelas</label>
-                <input type="text" id="newSiswaClass" class="form-control" placeholder="Contoh: 5A" required>
-              </div>
-              <div class="form-group">
-                <label>Username</label>
-                <input type="text" id="newSiswaUsername" class="form-control" placeholder="Username untuk login" required>
-              </div>
-              <div class="form-group">
-                <label>Password</label>
-                <input type="password" id="newSiswaPassword" class="form-control" placeholder="Password" required>
-              </div>
-            </div>
-
-            <h3 style="margin: 20px 0 16px; font-size: 16px; color: var(--gray-700);">👤 Data Orang Tua (Opsional)</h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-              <div class="form-group">
-                <label>Nama Orang Tua</label>
-                <input type="text" id="newSiswaParentName" class="form-control" placeholder="Nama orang tua">
-              </div>
-              <div class="form-group">
-                <label>Username Orang Tua</label>
-                <input type="text" id="newSiswaParentUsername" class="form-control" placeholder="Username orang tua">
-              </div>
-              <div class="form-group">
-                <label>Password Orang Tua</label>
-                <input type="password" id="newSiswaParentPassword" class="form-control" placeholder="Password orang tua">
-              </div>
-            </div>
-
-            <button type="submit" class="btn btn-success btn-lg" style="margin-top: 8px;">
-              ✅ Simpan Siswa
-            </button>
-          </form>
-        </div>
-      </div>
     </div>
   </div>
 
