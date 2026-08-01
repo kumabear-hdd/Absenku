@@ -46,6 +46,18 @@ function showWalasError(message) {
   }
 }
 
+// Switch back to admin dashboard (after impersonation login)
+async function switchBackToAdmin() {
+  try {
+    const data = await apiPost('/api/admin/switch-back', {});
+    if (data.redirect) {
+      window.location.href = data.redirect;
+    }
+  } catch (error) {
+    alert('Gagal kembali ke admin: ' + error.message);
+  }
+}
+
 // Load dashboard data
 async function loadDashboard() {
   try {

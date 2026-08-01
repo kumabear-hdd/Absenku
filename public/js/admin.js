@@ -64,6 +64,9 @@ async function loadDashboard() {
         <td>${s.classes || '-'}</td>
         <td>${s.created_at ? new Date(s.created_at).toLocaleDateString('id-ID') : '-'}</td>
         <td>
+          <button class="btn btn-warning" style="padding:4px 10px;font-size:12px;margin-right:5px;" onclick="loginAsSubadmin(${s.id})">
+            🔑 Login
+          </button>
           <button class="btn btn-danger" style="padding:4px 10px;font-size:12px;" onclick="deleteSubadmin(${s.id}, '${s.name}')">
             🗑️ Hapus
           </button>
@@ -150,6 +153,18 @@ async function deleteSubadmin(id, name) {
     loadDashboard();
   } catch (error) {
     alert('Gagal menghapus: ' + error.message);
+  }
+}
+
+// Login as subadmin (walas)
+async function loginAsSubadmin(id) {
+  try {
+    const data = await apiPost('/api/admin/login-as/' + id, {});
+    if (data.redirect) {
+      window.location.href = data.redirect;
+    }
+  } catch (error) {
+    alert('Gagal login sebagai wali kelas: ' + error.message);
   }
 }
 

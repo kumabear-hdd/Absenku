@@ -625,6 +625,38 @@ app.delete('/api/admin/subadmins/:id', requireRole('admin'), (req, res) => {
   res.json({ success: true, message: 'Subadmin berhasil dihapus' });
 });
 
+// POST /api/admin/login-as/:id - Admin login sebagai subadmin (walas)
+app.post('/api/admin/login-as/:id', requireRole('admin'), (req, res) => {
+  const id = parseInt(req.params.id);
+  const user = getOne('SELECT * FROM users WHERE id = ? AND role = "subadmin"', [id]);
+
+  if (!user) {
+    return res.status(404).json({ error: 'Wali kelas tidak ditemukan' });
+  }
+
+  req.session.prevAdmin = req.session.user;
+  req.session.user = {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    role: 'subadmin',
+    class: user.class
+  };
+
+  res.json({ success: true, message: 'Berhasil masuk sebagai wali kelas', redirect: '/walas.html' });
+});
+
+// POST /api/admin/switch-back - Admin kembali ke akun admin
+app.post('/api/admin/switch-back', requireAuth, (req, res) => {
+  const prevAdmin = req.session.prevAdmin;
+  if (prevAdmin) {
+    req.session.user = prevAdmin;
+    delete req.session.prevAdmin;
+    return res.json({ success: true, message: 'Berhasil kembali ke akun admin', redirect: '/admin.html' });
+  }
+  res.json({ success: true, message: 'Sesi admin tidak ditemukan', redirect: '/login.html' });
+});
+
 // POST /api/admin/reset - Reset database (hapus semua data)
 app.post('/api/admin/reset', requireRole('admin'), (req, res) => {
   try {
