@@ -88,9 +88,11 @@ async function loadSubadmins() {
 function showTab(tab) {
   document.getElementById('contentWaliKelas').style.display = 'none';
   document.getElementById('contentAddWali').style.display = 'none';
+  document.getElementById('contentAddSiswa').style.display = 'none';
 
   document.getElementById('tabWaliKelas').className = 'btn btn-outline';
   document.getElementById('tabAddWali').className = 'btn btn-outline';
+  document.getElementById('tabAddSiswa').className = 'btn btn-outline';
 
   switch (tab) {
     case 'waliKelas':
@@ -101,6 +103,10 @@ function showTab(tab) {
     case 'addWali':
       document.getElementById('contentAddWali').style.display = 'block';
       document.getElementById('tabAddWali').className = 'btn btn-primary';
+      break;
+    case 'addSiswa':
+      document.getElementById('contentAddSiswa').style.display = 'block';
+      document.getElementById('tabAddSiswa').className = 'btn btn-primary';
       break;
   }
 }
@@ -185,3 +191,52 @@ async function resetDatabase() {
     alert('❌ Gagal reset: ' + error.message);
   }
 }
+
+// Add student form
+document.getElementById('addSiswaForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const alertBox = document.getElementById('addSiswaAlert');
+
+  const body = {
+    nis: document.getElementById('newSiswaNis').value.trim(),
+    name: document.getElementById('newSiswaName').value.trim(),
+    class: document.getElementById('newSiswaClass').value.trim(),
+    username: document.getElementById('newSiswaUsername').value.trim(),
+    password: document.getElementById('newSiswaPassword').value,
+    parentName: document.getElementById('newSiswaParentName').value.trim() || null,
+    parentUsername: document.getElementById('newSiswaParentUsername').value.trim() || null,
+    parentPassword: document.getElementById('newSiswaParentPassword').value || null
+  };
+
+  if (!body.nis || !body.name || !body.class || !body.username || !body.password) {
+    alertBox.className = 'alert alert-error';
+    alertBox.textContent = '❌ NISN, Nama, Kelas, Username, dan Password wajib diisi';
+    alertBox.style.display = 'flex';
+    setTimeout(() => { alertBox.style.display = 'none'; }, 3000);
+    return;
+  }
+
+  try {
+    const data = await apiPost('/api/admin/students', body);
+
+    alertBox.className = 'alert alert-success';
+    alertBox.textContent = '✅ ' + data.message;
+    alertBox.style.display = 'flex';
+
+    document.getElementById('addSiswaForm').reset();
+
+    setTimeout(() => {
+      showTab('waliKelas');
+    }, 1000);
+
+    setTimeout(() => {
+      alertBox.style.display = 'none';
+    }, 3000);
+
+  } catch (error) {
+    alertBox.className = 'alert alert-error';
+    alertBox.textContent = '❌ ' + error.message;
+    alertBox.style.display = 'flex';
+  }
+});
