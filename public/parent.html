@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Orang Tua - AbsenKu</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .printable-report {
+      font-family: Arial, sans-serif;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .printable-report h2 {
+      text-align: center;
+      margin-bottom: 4px;
+    }
+    .printable-report .report-subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    .printable-report .report-info {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    .printable-report table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    .printable-report th, .printable-report td {
+      border: 1px solid #ddd;
+      padding: 8px 10px;
+      text-align: left;
+    }
+    .printable-report th {
+      background: #f5f5f5;
+      font-weight: 600;
+    }
+    .printable-report .stat-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .printable-report .stat-box {
+      flex: 1;
+      padding: 10px;
+      border-radius: 6px;
+      text-align: center;
+      border: 1px solid #ddd;
+    }
+    .printable-report .stat-box .label {
+      font-size: 11px;
+      color: #666;
+      text-transform: uppercase;
+    }
+    .printable-report .stat-box .value {
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .printable-report .stat-box.hadir { background: #dcfce7; }
+    .printable-report .stat-box.terlambat { background: #fef3c7; }
+    .printable-report .stat-box.izin { background: #dbeafe; }
+    .printable-report .stat-box.sakit { background: #fce7f3; }
+    .printable-report .stat-box.alpha { background: #fee2e2; }
+    .printable-report .stat-box.total { background: #f3f4f6; }
+    @media print {
+      body * { visibility: hidden; }
+      #reportContainer, #reportContainer * { visibility: visible; }
+      #reportContainer {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+      }
+      .btn, button { display: none !important; }
+    }
+  </style>
+  <style>
+    .parent-container {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .connection-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+    .connection-status.connected {
+      background: var(--success-bg);
+      color: #065F46;
+    }
+    .connection-status.disconnected {
+      background: var(--danger-bg);
+      color: #991B1B;
+    }
+    .pulse-ring {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--success);
+      position: relative;
+    }
+    .pulse-ring::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 2px solid var(--success);
+      animation: pulseRing 1.5s infinite;
+    }
+    @keyframes pulseRing {
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(1.8); opacity: 0; }
+    }
+    .notif-sound-btn {
+      background: none;
+      border: 1px solid var(--gray-300);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--gray-600);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="navbar"></div>
+
+    <div class="container">
+      <div class="parent-container">
+        <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <h1>👨‍👩‍👧 Dashboard Orang Tua</h1>
+            <p id="todayDate"></p>
+          </div>
+          <div>
+            <span class="connection-status disconnected" id="connectionStatus">
+              <span id="connDot"></span> Menghubungkan...
+            </span>
+          </div>
+        </div>
+
+        <!-- Status Anak Hari Ini -->
+        <div id="childrenStatus">
+          <div class="loading">
+            <div class="spinner"></div>
+            Memuat data anak...
+          </div>
+        </div>
+
+        <!-- Notifikasi Real-time -->
+        <div class="card" style="margin-top:20px;">
+          <div class="card-header">
+            <h2>🔔 Notifikasi Terbaru</h2>
+            <span style="font-size:12px;color:var(--gray-500);">Update otomatis saat anak absen</span>
+          </div>
+          <div class="card-body" id="notificationList">
+            <div class="loading">
+              <div class="spinner"></div>
+              Memuat notifikasi...
+            </div>
+          </div>
+        </div>
+
+<!-- Riwayat per Anak -->
+        <div id="historySection" style="margin-top:20px;display:none;">
+          <div class="card">
+            <div class="card-header">
+              <h2 id="historyTitle">📅 Riwayat Absensi</h2>
+              <select class="form-control" style="width:auto;" id="childSelect" onchange="loadChildHistory()">
+              </select>
+            </div>
+            <div class="card-body">
+              <!-- Stats -->
+              <div class="stats-grid" id="historyStats" style="margin-bottom:16px;"></div>
+              <!-- Table -->
+              <div class="table-responsive">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Tanggal</th>
+                      <th>Masuk</th>
+                      <th>Pulang</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="historyTable">
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Laporan Absensi -->
+        <div id="reportSection" style="margin-top:20px;display:none;">
+          <div class="card">
+            <div class="card-header">
+              <h2>📥 Laporan Absensi</h2>
+            </div>
+            <div class="card-body">
+              <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:16px;">
+                <div>
+                  <label style="font-size:12px;color:var(--gray-500);display:block;margin-bottom:4px;">Anak</label>
+                  <select class="form-control" style="width:auto;" id="reportChildSelect"></select>
+                </div>
+                <div>
+                  <label style="font-size:12px;color:var(--gray-500);display:block;margin-bottom:4px;">Periode</label>
+                  <select class="form-control" style="width:auto;" id="reportPeriod">
+                    <option value="monthly">Bulanan</option>
+                    <option value="yearly">Tahunan</option>
+                  </select>
+                </div>
+                <div id="monthFilter">
+                  <label style="font-size:12px;color:var(--gray-500);display:block;margin-bottom:4px;">Bulan</label>
+                  <select class="form-control" style="width:auto;" id="reportMonth">
+                    <option value="1">Januari</option>
+                    <option value="2">Februari</option>
+                    <option value="3">Maret</option>
+                    <option value="4">April</option>
+                    <option value="5">Mei</option>
+                    <option value="6">Juni</option>
+                    <option value="7">Juli</option>
+                    <option value="8">Agustus</option>
+                    <option value="9">September</option>
+                    <option value="10">Oktober</option>
+                    <option value="11">November</option>
+                    <option value="12">Desember</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:12px;color:var(--gray-500);display:block;margin-bottom:4px;">Tahun</label>
+                  <select class="form-control" style="width:auto;" id="reportYear"></select>
+                </div>
+                <button class="btn btn-primary" onclick="generateReport()">📊 Tampilkan</button>
+              </div>
+              <div style="display:flex;gap:8px;margin-bottom:16px;">
+                <button class="btn btn-outline" onclick="downloadReportHTML()">💾 Unduh HTML</button>
+                <button class="btn btn-outline" onclick="window.print()">🖨️ Cetak / PDF</button>
+              </div>
+              <div id="reportContainer"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/parent.js"></script>
+  </body>
+</html>

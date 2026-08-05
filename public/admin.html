@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Admin - AbsenKu</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Navbar -->
+    <div id="navbar"></div>
+
+    <div class="container">
+      <!-- Header -->
+      <div class="page-header">
+        <h1>📊 Dashboard Admin</h1>
+        <p id="todayDate"></p>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card">
+          <div class="stat-icon blue">👨‍🏫</div>
+          <div class="stat-info">
+            <h3 id="statTotalWali">-</h3>
+            <p>Total Wali Kelas</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">📚</div>
+          <div class="stat-info">
+            <h3 id="statKelasTerpakai">-</h3>
+            <p>Kelas Terpakai</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon yellow">⚠️</div>
+          <div class="stat-info">
+            <h3 id="statKelasKosong">-</h3>
+            <p>Kelas Belum Ditempati</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Navigation -->
+      <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+        <button class="btn btn-primary" onclick="showTab('waliKelas')" id="tabWaliKelas">👨‍🏫 Daftar Wali Kelas</button>
+        <button class="btn btn-outline" onclick="showTab('addWali')" id="tabAddWali">➕ Tambah Wali Kelas</button>
+        <button class="btn btn-outline" onclick="resetDatabase()" style="margin-left:auto;color:var(--danger);border-color:var(--danger);">🗑️ Reset Database</button>
+      </div>
+
+      <!-- Tab: Daftar Wali Kelas -->
+      <div id="contentWaliKelas" class="card">
+        <div class="card-header">
+          <h2>👨‍🏫 Daftar Wali Kelas</h2>
+          <button class="btn btn-outline" onclick="loadSubadmins()">🔄 Refresh</button>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Nama</th>
+                  <th>Username</th>
+                  <th>Kelas</th>
+                  <th>Tanggal Dibuat</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="waliKelasTable">
+                <tr>
+                  <td colspan="5" class="loading">
+                    <div class="spinner"></div>
+                    Memuat data...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Tambah Wali Kelas -->
+      <div id="contentAddWali" class="card" style="display: none;">
+        <div class="card-header">
+          <h2>➕ Tambah Wali Kelas Baru</h2>
+        </div>
+        <div class="card-body">
+          <div id="addWaliAlert" class="alert" style="display: none;"></div>
+          <form id="addWaliForm">
+            <h3 style="margin-bottom: 16px; font-size: 16px; color: var(--gray-700);">👨‍🏫 Data Wali Kelas</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+              <div class="form-group">
+                <label>Nama Lengkap</label>
+                <input type="text" id="newWaliName" class="form-control" placeholder="Nama wali kelas" required>
+              </div>
+              <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="newWaliUsername" class="form-control" placeholder="Username untuk login" required>
+              </div>
+              <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="newWaliPassword" class="form-control" placeholder="Password" required>
+              </div>
+              <div class="form-group">
+                <label>Kelas</label>
+                <input type="text" id="newWaliClass" class="form-control" placeholder="Contoh: 5A" required>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-success btn-lg" style="margin-top: 8px;">
+              ✅ Simpan Wali Kelas
+            </button>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>

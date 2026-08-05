@@ -1,0 +1,1005 @@
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const session = require('express-session');
+const bcrypt = require('bcrypt');
+const multer = require('multer');
+const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
+const { initDatabase, getOne, getAll, run } = require('./database');
+
+// ========================================
+// TIMEZONE HELPER - WIB (UTC+7)
+// ========================================
+function getNowWIB() {
+  const now = new Date();
+  // Tambah 7 jam untuk WIB
+  const wib = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+  return wib;
+}
+
+function getTodayWIB() {
+  const wib = getNowWIB();
+  return wib.toISOString().split('T')[0];
+}
+
+function getTimeWIB() {
+  const wib = getNowWIB();
+  const hours = String(wib.getUTCHours()).padStart(2, '0');
+  const minutes = String(wib.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(wib.getUTCSeconds()).padStart(2, '0');
+  return `${hours}:${minutes}:${seconds}`;
+}
+
+function getHourWIB() {
+  return getNowWIB().getUTCHours();
+}
+
+function getMinuteWIB() {
+  return getNowWIB().getUTCMinutes();
+}
+
+function getMonthName(month) {
+  const names = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  return names[month - 1] || '';
+}
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+const PORT = process.env.PORT || 3000;
+
+// ========================================
+// MIDDLEWARE
+// ========================================
+
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'absenku-secret-key-2026',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 24 * 60 * 60 * 1000 }
+}));
+
+// Upload foto config
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, 'uploads', 'photos');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = `absen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
+    cb(null, uniqueName);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Hanya file gambar yang diizinkan'), false);
+    }
+  }
+});
+
+// Auth middleware
+function requireAuth(req, res, next) {
+  if (!req.session.user) {
+    return res.status(401).json({ error: 'Silakan login terlebih dahulu' });
+  }
+  next();
+}
+
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.session.user) {
+      return res.status(401).json({ error: 'Silakan login terlebih dahulu' });
+    }
+    if (!roles.includes(req.session.user.role)) {
+      return res.status(403).json({ error: 'Anda tidak memiliki akses' });
+    }
+    next();
+  };
+}
+
+// ========================================
+// SOCKET.IO
+// ========================================
+
+io.on('connection', (socket) => {
+  console.log(`🔌 Socket connected: ${socket.id}`);
+
+  socket.on('register', (userId) => {
+    socket.userId = userId;
+    console.log(`👤 User ${userId} registered`);
+  });
+
+  socket.on('join_parent_room', (parentId) => {
+    socket.join(`parent_${parentId}`);
+    console.log(`👨‍👩‍👧 Parent ${parentId} joined room`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`🔌 Socket disconnected: ${socket.id}`);
+  });
+});
+
+function notifyParent(parentId, data) {
+  io.to(`parent_${parentId}`).emit('attendance_update', data);
+  console.log(`📢 Notifikasi ke parent ${parentId}: ${data.message}`);
+}
+
+// ========================================
+// API: AUTH
+// ========================================
+
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username dan password wajib diisi' });
+  }
+
+  const user = getOne('SELECT * FROM users WHERE username = ?', [username]);
+  if (!user) {
+    return res.status(401).json({ error: 'Username atau password salah' });
+  }
+
+  const valid = bcrypt.compareSync(password, user.password);
+  if (!valid) {
+    return res.status(401).json({ error: 'Username atau password salah' });
+  }
+
+  req.session.user = {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    role: user.role,
+    class: user.class || null
+  };
+
+  let studentData = null;
+  if (user.role === 'siswa') {
+    studentData = getOne('SELECT * FROM students WHERE user_id = ?', [user.id]);
+  }
+
+  res.json({
+    success: true,
+    user: {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      role: user.role,
+      student: studentData
+    }
+  });
+});
+
+// Login khusus untuk wali kelas (subadmin)
+app.post('/api/subadmin/login', (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username dan password wajib diisi' });
+  }
+
+  const user = getOne('SELECT * FROM users WHERE username = ? AND role = "subadmin"', [username]);
+  if (!user) {
+    return res.status(401).json({ error: 'Akun wali kelas tidak ditemukan' });
+  }
+
+  const valid = bcrypt.compareSync(password, user.password);
+  if (!valid) {
+    return res.status(401).json({ error: 'Password salah' });
+  }
+
+  req.session.user = {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    role: 'subadmin',
+    class: user.class
+  };
+
+  res.json({
+    success: true,
+    user: { id: user.id, username: user.username, name: user.name, role: 'subadmin' }
+  });
+});
+
+app.post('/api/logout', (req, res) => {
+  req.session.destroy();
+  res.json({ success: true });
+});
+
+app.get('/api/me', requireAuth, (req, res) => {
+  const user = req.session.user;
+  let studentData = null;
+  if (user.role === 'siswa') {
+    studentData = getOne('SELECT * FROM students WHERE user_id = ?', [user.id]);
+  }
+  res.json({ user: { ...user, student: studentData } });
+});
+
+// Login khusus untuk wali kelas (subadmin)
+app.post('/api/subadmin/login', (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username dan password wajib diisi' });
+  }
+
+  const user = getOne('SELECT * FROM users WHERE username = ? AND role = "subadmin"', [username]);
+  if (!user) {
+    return res.status(401).json({ error: 'Akun wali kelas tidak ditemukan' });
+  }
+
+  const valid = bcrypt.compareSync(password, user.password);
+  if (!valid) {
+    return res.status(401).json({ error: 'Password salah' });
+  }
+
+  req.session.user = {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    role: 'subadmin',
+    class: user.class
+  };
+
+  res.json({
+    success: true,
+    user: { id: user.id, username: user.username, name: user.name, role: 'subadmin' }
+  });
+});
+
+// ========================================
+// API: ABSENSI (SISWA)
+// ========================================
+
+app.post('/api/attendance/checkin', requireRole('siswa'), upload.single('photo'), (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const student = getOne('SELECT * FROM students WHERE user_id = ?', [userId]);
+
+    if (!student) {
+      return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
+    }
+
+    const today = getTodayWIB();
+    const now = getTimeWIB();
+    const photoPath = req.file ? `/uploads/photos/${req.file.filename}` : null;
+    const lat = req.body.lat ? parseFloat(req.body.lat) : null;
+    const lng = req.body.lng ? parseFloat(req.body.lng) : null;
+
+    const existing = getOne('SELECT * FROM attendances WHERE student_id = ? AND date = ?', [student.id, today]);
+
+    if (existing && existing.check_in_time) {
+      return res.status(400).json({ error: 'Anda sudah absen masuk hari ini' });
+    }
+
+    const hour = getHourWIB();
+    const minute = getMinuteWIB();
+    const timeBasedStatus = hour >= 8 ? 'terlambat' : 'hadir';
+    const clientStatus = req.body.status || null;
+    const status = (clientStatus && clientStatus !== 'hadir') ? clientStatus : timeBasedStatus;
+
+    if (existing) {
+      run('UPDATE attendances SET check_in_time = ?, check_in_photo = ?, check_in_lat = ?, check_in_lng = ?, status = ? WHERE id = ?', [now, photoPath, lat, lng, status, existing.id]);
+    } else {
+      run('INSERT INTO attendances (student_id, date, check_in_time, check_in_photo, check_in_lat, check_in_lng, status) VALUES (?, ?, ?, ?, ?, ?, ?)', [student.id, today, now, photoPath, lat, lng, status]);
+    }
+
+    const locationText = lat && lng ? ` 📍 https://maps.google.com/?q=${lat},${lng}` : '';
+    const message = `${student.name} sudah sampai di sekolah pukul ${now}${locationText}`;
+    run('INSERT INTO notifications (parent_id, student_id, type, message, photo, time) VALUES (?, ?, ?, ?, ?, ?)', [student.parent_id, student.id, 'check_in', message, photoPath, now]);
+
+    notifyParent(student.parent_id, {
+      type: 'check_in',
+      studentName: student.name,
+      studentClass: student.class,
+      message,
+      photo: photoPath,
+      time: now,
+      status,
+      lat,
+      lng,
+      timestamp: new Date().toISOString()
+    });
+
+    res.json({
+      success: true,
+      message: `Absen masuk berhasil pukul ${now}`,
+      data: { check_in_time: now, photo: photoPath, status, lat, lng }
+    });
+
+  } catch (error) {
+    console.error('Checkin error:', error);
+    res.status(500).json({ error: 'Terjadi kesalahan saat absen masuk' });
+  }
+});
+
+app.post('/api/attendance/checkout', requireRole('siswa'), upload.single('photo'), (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const student = getOne('SELECT * FROM students WHERE user_id = ?', [userId]);
+
+    if (!student) {
+      return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
+    }
+
+    const today = getTodayWIB();
+    const now = getTimeWIB();
+    const photoPath = req.file ? `/uploads/photos/${req.file.filename}` : null;
+    const lat = req.body.lat ? parseFloat(req.body.lat) : null;
+    const lng = req.body.lng ? parseFloat(req.body.lng) : null;
+
+    const existing = getOne('SELECT * FROM attendances WHERE student_id = ? AND date = ?', [student.id, today]);
+
+    if (!existing || !existing.check_in_time) {
+      return res.status(400).json({ error: 'Anda belum absen masuk hari ini' });
+    }
+
+    if (existing.check_out_time) {
+      return res.status(400).json({ error: 'Anda sudah absen pulang hari ini' });
+    }
+
+    run('UPDATE attendances SET check_out_time = ?, check_out_photo = ?, check_out_lat = ?, check_out_lng = ? WHERE id = ?', [now, photoPath, lat, lng, existing.id]);
+
+    const locationText = lat && lng ? ` 📍 https://maps.google.com/?q=${lat},${lng}` : '';
+    const message = `${student.name} sudah pulang dari sekolah pukul ${now}${locationText}`;
+    run('INSERT INTO notifications (parent_id, student_id, type, message, photo, time) VALUES (?, ?, ?, ?, ?, ?)', [student.parent_id, student.id, 'check_out', message, photoPath, now]);
+
+    notifyParent(student.parent_id, {
+      type: 'check_out',
+      studentName: student.name,
+      studentClass: student.class,
+      message,
+      photo: photoPath,
+      time: now,
+      lat,
+      lng,
+      timestamp: new Date().toISOString()
+    });
+
+    res.json({
+      success: true,
+      message: `Absen pulang berhasil pukul ${now}`,
+      data: { check_out_time: now, photo: photoPath, lat, lng }
+    });
+
+  } catch (error) {
+    console.error('Checkout error:', error);
+    res.status(500).json({ error: 'Terjadi kesalahan saat absen pulang' });
+  }
+});
+
+app.get('/api/attendance/today', requireRole('siswa'), (req, res) => {
+  const userId = req.session.user.id;
+  const student = getOne('SELECT * FROM students WHERE user_id = ?', [userId]);
+
+  if (!student) {
+    return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
+  }
+
+  const today = getTodayWIB();
+  const attendance = getOne('SELECT * FROM attendances WHERE student_id = ? AND date = ?', [student.id, today]);
+
+  res.json({ attendance: attendance || null });
+});
+
+app.get('/api/attendance/history', requireRole('siswa'), (req, res) => {
+  const userId = req.session.user.id;
+  const student = getOne('SELECT * FROM students WHERE user_id = ?', [userId]);
+
+  if (!student) {
+    return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
+  }
+
+  const history = getAll('SELECT * FROM attendances WHERE student_id = ? ORDER BY date DESC LIMIT 30', [student.id]);
+  res.json({ history });
+});
+
+// ========================================
+// API: ORANG TUA
+// ========================================
+
+app.get('/api/parent/children', requireRole('ortu'), (req, res) => {
+  const parentId = req.session.user.id;
+  const children = getAll('SELECT * FROM students WHERE parent_id = ?', [parentId]);
+  res.json({ children });
+});
+
+app.get('/api/parent/today', requireRole('ortu'), (req, res) => {
+  const parentId = req.session.user.id;
+  const today = getTodayWIB();
+
+  const children = getAll('SELECT * FROM students WHERE parent_id = ?', [parentId]);
+
+  const results = children.map(child => {
+    const attendance = getOne('SELECT * FROM attendances WHERE student_id = ? AND date = ?', [child.id, today]);
+    return {
+      student: child,
+      attendance: attendance || null
+    };
+  });
+
+  res.json({ children: results });
+});
+
+app.get('/api/parent/notifications', requireRole('ortu'), (req, res) => {
+  const parentId = req.session.user.id;
+  const notifications = getAll(`
+    SELECT n.*, s.name as student_name, s.class as student_class
+    FROM notifications n
+    JOIN students s ON n.student_id = s.id
+    WHERE n.parent_id = ?
+    ORDER BY n.created_at DESC
+    LIMIT 20
+  `, [parentId]);
+
+  res.json({ notifications });
+});
+
+app.get('/api/parent/history/:studentId', requireRole('ortu'), (req, res) => {
+  const parentId = req.session.user.id;
+  const studentId = parseInt(req.params.studentId);
+
+  const student = getOne('SELECT * FROM students WHERE id = ? AND parent_id = ?', [studentId, parentId]);
+  if (!student) {
+    return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
+  }
+
+  const history = getAll('SELECT * FROM attendances WHERE student_id = ? ORDER BY date DESC LIMIT 30', [studentId]);
+
+  const stats = getOne(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+      SUM(CASE WHEN status = 'terlambat' THEN 1 ELSE 0 END) as terlambat,
+      SUM(CASE WHEN status = 'izin' THEN 1 ELSE 0 END) as izin,
+      SUM(CASE WHEN status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+      SUM(CASE WHEN status = 'alpha' THEN 1 ELSE 0 END) as alpha
+    FROM attendances WHERE student_id = ?
+  `, [studentId]);
+
+  res.json({ student, history, stats });
+});
+
+// GET /api/parent/report/monthly - Laporan absensi bulanan
+app.get('/api/parent/report/monthly', requireRole('ortu'), (req, res) => {
+  const parentId = req.session.user.id;
+  const studentId = parseInt(req.query.student_id);
+  const month = parseInt(req.query.month);
+  const year = parseInt(req.query.year);
+
+  if (!studentId || !month || !year) {
+    return res.status(400).json({ error: 'Parameter student_id, month, dan year wajib diisi' });
+  }
+
+  const student = getOne('SELECT * FROM students WHERE id = ? AND parent_id = ?', [studentId, parentId]);
+  if (!student) {
+    return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
+  }
+
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
+
+  const attendances = getAll(`
+    SELECT * FROM attendances
+    WHERE student_id = ? AND date BETWEEN ? AND ?
+    ORDER BY date ASC
+  `, [studentId, startDate, endDate]);
+
+  const stats = getOne(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+      SUM(CASE WHEN status = 'terlambat' THEN 1 ELSE 0 END) as terlambat,
+      SUM(CASE WHEN status = 'izin' THEN 1 ELSE 0 END) as izin,
+      SUM(CASE WHEN status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+      SUM(CASE WHEN status = 'alpha' THEN 1 ELSE 0 END) as alpha
+    FROM attendances
+    WHERE student_id = ? AND date BETWEEN ? AND ?
+  `, [studentId, startDate, endDate]);
+
+  const monthName = getMonthName(month);
+  res.json({ student, month, year, monthName, attendances, stats });
+});
+
+// GET /api/parent/report/yearly - Laporan absensi tahunan
+app.get('/api/parent/report/yearly', requireRole('ortu'), (req, res) => {
+  const parentId = req.session.user.id;
+  const studentId = parseInt(req.query.student_id);
+  const year = parseInt(req.query.year);
+
+  if (!studentId || !year) {
+    return res.status(400).json({ error: 'Parameter student_id dan year wajib diisi' });
+  }
+
+  const student = getOne('SELECT * FROM students WHERE id = ? AND parent_id = ?', [studentId, parentId]);
+  if (!student) {
+    return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
+  }
+
+  const startDate = `${year}-01-01`;
+  const endDate = `${year}-12-31`;
+
+  const attendances = getAll(`
+    SELECT * FROM attendances
+    WHERE student_id = ? AND date BETWEEN ? AND ?
+    ORDER BY date ASC
+  `, [studentId, startDate, endDate]);
+
+  const stats = getOne(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+      SUM(CASE WHEN status = 'terlambat' THEN 1 ELSE 0 END) as terlambat,
+      SUM(CASE WHEN status = 'izin' THEN 1 ELSE 0 END) as izin,
+      SUM(CASE WHEN status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+      SUM(CASE WHEN status = 'alpha' THEN 1 ELSE 0 END) as alpha
+    FROM attendances
+    WHERE student_id = ? AND date BETWEEN ? AND ?
+  `, [studentId, startDate, endDate]);
+
+  const monthlyStats = getAll(`
+    SELECT
+      strftime('%m', date) as month,
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+      SUM(CASE WHEN status = 'terlambat' THEN 1 ELSE 0 END) as terlambat,
+      SUM(CASE WHEN status = 'izin' THEN 1 ELSE 0 END) as izin,
+      SUM(CASE WHEN status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+      SUM(CASE WHEN status = 'alpha' THEN 1 ELSE 0 END) as alpha
+    FROM attendances
+    WHERE student_id = ? AND date BETWEEN ? AND ?
+    GROUP BY strftime('%m', date)
+    ORDER BY month ASC
+  `, [studentId, startDate, endDate]);
+
+  res.json({ student, year, attendances, stats, monthlyStats });
+});
+
+// ========================================
+// API: ADMIN
+// ========================================
+
+app.get('/api/admin/dashboard', requireRole('admin'), (req, res) => {
+  const today = getTodayWIB();
+
+  const totalStudentsResult = getOne('SELECT COUNT(*) as count FROM students');
+  const totalStudents = totalStudentsResult ? totalStudentsResult.count : 0;
+
+  const todayAttendances = getAll(`
+    SELECT a.*, s.name as student_name, s.class as student_class, s.nis
+    FROM attendances a
+    JOIN students s ON a.student_id = s.id
+    WHERE a.date = ?
+    ORDER BY a.check_in_time DESC
+  `, [today]);
+
+  const stats = {
+    totalStudents,
+    hadir: todayAttendances.filter(a => a.check_in_time).length,
+    sudahPulang: todayAttendances.filter(a => a.check_out_time).length,
+    belumHadir: totalStudents - todayAttendances.filter(a => a.check_in_time).length
+  };
+
+  res.json({ stats, attendances: todayAttendances });
+});
+
+app.get('/api/admin/students', requireRole('admin'), (req, res) => {
+  const students = getAll(`
+    SELECT s.*, u.username, p.name as parent_name
+    FROM students s
+    JOIN users u ON s.user_id = u.id
+    LEFT JOIN users p ON s.parent_id = p.id
+    ORDER BY s.class, s.name
+  `);
+
+  res.json({ students });
+});
+
+app.post('/api/admin/students', requireRole('admin'), (req, res) => {
+  const { nis, name, class: kelas, username, password, parentUsername, parentPassword, parentName } = req.body;
+
+  if (!nis || !name || !kelas || !username || !password) {
+    return res.status(400).json({ error: 'Data siswa tidak lengkap' });
+  }
+
+  try {
+    const siswaHash = bcrypt.hashSync(password, 10);
+    const siswaUserId = run('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)', [username, siswaHash, name, 'siswa']);
+
+    let parentId = null;
+    if (parentUsername && parentPassword && parentName) {
+      const ortuHash = bcrypt.hashSync(parentPassword, 10);
+      parentId = run('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)', [parentUsername, ortuHash, parentName, 'ortu']);
+    }
+
+    run('INSERT INTO students (user_id, nis, name, class, parent_id) VALUES (?, ?, ?, ?, ?)', [siswaUserId, nis, name, kelas, parentId]);
+
+    res.json({ success: true, message: 'Siswa berhasil ditambahkan' });
+  } catch (error) {
+    console.error('Add student error:', error.message);
+    if (error.message.includes('UNIQUE constraint failed: users.username')) {
+      res.status(400).json({ error: 'Username sudah digunakan, silakan gunakan username lain' });
+    } else if (error.message.includes('UNIQUE constraint failed: students.nis')) {
+      res.status(400).json({ error: 'NISN sudah digunakan, silakan gunakan NISN lain' });
+    } else {
+      res.status(400).json({ error: 'Gagal menambahkan siswa: ' + error.message });
+    }
+  }
+});
+
+app.delete('/api/admin/students/:id', requireRole('admin'), (req, res) => {
+  const studentId = parseInt(req.params.id);
+  const student = getOne('SELECT * FROM students WHERE id = ?', [studentId]);
+
+  if (!student) {
+    return res.status(404).json({ error: 'Siswa tidak ditemukan' });
+  }
+
+  run('DELETE FROM attendances WHERE student_id = ?', [studentId]);
+  run('DELETE FROM notifications WHERE student_id = ?', [studentId]);
+  run('DELETE FROM students WHERE id = ?', [studentId]);
+  run('DELETE FROM users WHERE id = ?', [student.user_id]);
+
+  res.json({ success: true, message: 'Siswa berhasil dihapus' });
+});
+
+app.get('/api/admin/parents', requireRole('admin'), (req, res) => {
+  const parents = getAll(`
+    SELECT u.id, u.username, u.name,
+           GROUP_CONCAT(s.name, ', ') as children
+    FROM users u
+    LEFT JOIN students s ON s.parent_id = u.id
+    WHERE u.role = 'ortu'
+    GROUP BY u.id
+    ORDER BY u.name
+  `);
+
+  res.json({ parents });
+});
+
+// ========================================
+// SUBADMIN (WALI KELAS)
+// ========================================
+
+// GET /api/admin/subadmins - Daftar semua subadmin
+app.get('/api/admin/subadmins', requireRole('admin'), (req, res) => {
+  const subadmins = getAll(`
+    SELECT u.id, u.username, u.name, u.role, u.created_at,
+           GROUP_CONCAT(s.class, ', ') as classes
+    FROM users u
+    LEFT JOIN students s ON u.id = s.user_id
+    WHERE u.role = 'subadmin'
+    GROUP BY u.id
+    ORDER BY u.name
+  `);
+  res.json({ subadmins });
+});
+
+// POST /api/admin/subadmins - Tambah subadmin baru
+app.post('/api/admin/subadmins', requireRole('admin'), (req, res) => {
+  const { username, password, name, class: kelas } = req.body;
+
+  if (!username || !password || !name) {
+    return res.status(400).json({ error: 'Data subadmin tidak lengkap' });
+  }
+
+  const saltRounds = 10;
+  const hash = bcrypt.hashSync(password, saltRounds);
+
+  try {
+    const userId = run('INSERT INTO users (username, password, name, role, class) VALUES (?, ?, ?, ?, ?)', 
+      [username, hash, name, 'subadmin', kelas || null]);
+    
+    // Tambah data subadmin
+    run('INSERT INTO students (user_id, nis, name, class, parent_id) VALUES (?, ?, ?, ?, ?)', 
+      [userId, username, name, kelas || 'Guru', null]);
+
+    res.json({ success: true, message: 'Subadmin berhasil ditambahkan', userId });
+  } catch (error) {
+    res.status(400).json({ error: 'Username sudah digunakan' });
+  }
+});
+
+// DELETE /api/admin/subadmins/:id - Hapus subadmin
+app.delete('/api/admin/subadmins/:id', requireRole('admin'), (req, res) => {
+  const id = parseInt(req.params.id);
+  run('DELETE FROM students WHERE user_id = ?', [id]);
+  run('DELETE FROM users WHERE id = ?', [id]);
+  res.json({ success: true, message: 'Subadmin berhasil dihapus' });
+});
+
+// POST /api/admin/login-as/:id - Admin login sebagai subadmin (walas)
+app.post('/api/admin/login-as/:id', requireRole('admin'), (req, res) => {
+  const id = parseInt(req.params.id);
+  const user = getOne('SELECT * FROM users WHERE id = ? AND role = "subadmin"', [id]);
+
+  if (!user) {
+    return res.status(404).json({ error: 'Wali kelas tidak ditemukan' });
+  }
+
+  req.session.prevAdmin = req.session.user;
+  req.session.user = {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    role: 'subadmin',
+    class: user.class
+  };
+
+  res.json({ success: true, message: 'Berhasil masuk sebagai wali kelas', redirect: '/walas.html' });
+});
+
+// POST /api/admin/switch-back - Admin kembali ke akun admin
+app.post('/api/admin/switch-back', requireAuth, (req, res) => {
+  const prevAdmin = req.session.prevAdmin;
+  if (prevAdmin && prevAdmin.role === 'admin') {
+    req.session.user = prevAdmin;
+    delete req.session.prevAdmin;
+    return res.json({ success: true, message: 'Berhasil kembali ke akun admin', redirect: '/admin.html' });
+  }
+  res.status(403).json({ error: 'Anda tidak memiliki akses untuk kembali ke admin' });
+});
+
+// POST /api/admin/reset - Reset database (hapus semua data)
+app.post('/api/admin/reset', requireRole('admin'), (req, res) => {
+  try {
+    // Hapus semua data dari tabel (kecuali admin)
+    run('DELETE FROM notifications');
+    run('DELETE FROM attendances');
+    run('DELETE FROM students');
+    run('DELETE FROM users WHERE role != ?', ['admin']);
+
+    // Hapus foto
+    const photosDir = path.join(__dirname, 'uploads', 'photos');
+    if (fs.existsSync(photosDir)) {
+      const files = fs.readdirSync(photosDir);
+      files.forEach(file => {
+        if (file !== '.gitkeep') {
+          fs.unlinkSync(path.join(photosDir, file));
+        }
+      });
+    }
+
+    res.json({ success: true, message: 'Database berhasil di-reset. Silakan tambah data siswa baru.' });
+  } catch (error) {
+    console.error('Reset error:', error);
+    res.status(500).json({ error: 'Gagal reset database' });
+  }
+});
+
+// ========================================
+// PAGE ROUTES
+// ========================================
+
+app.get('/admin', requireRole('admin'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.get('/student', requireRole('siswa'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'student.html'));
+});
+
+app.get('/parent', requireRole('ortu'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'parent.html'));
+});
+
+app.get('/walas', requireRole('subadmin'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'walas.html'));
+});
+
+// ========================================
+// API: WALI KELAS (SUBADMIN)
+// ========================================
+
+app.get('/api/walas/dashboard', requireRole('subadmin'), (req, res) => {
+  const userClass = req.session.user.class;
+  const userId = req.session.user.id;
+  const today = getTodayWIB();
+
+  const students = getAll('SELECT * FROM students WHERE class = ? AND user_id != ?', [userClass, userId]);
+  const totalStudents = students.length;
+
+  const todayAttendances = getAll(`
+    SELECT a.*, s.name as student_name, s.nis as nisn
+    FROM attendances a
+    JOIN students s ON a.student_id = s.id
+    WHERE s.class = ? AND s.user_id != ? AND a.date = ?
+    ORDER BY a.check_in_time DESC
+  `, [userClass, userId, today]);
+
+  const stats = {
+    totalStudents,
+    hadir: todayAttendances.filter(a => a.check_in_time).length,
+    sudahPulang: todayAttendances.filter(a => a.check_out_time).length,
+    belumHadir: totalStudents - todayAttendances.filter(a => a.check_in_time).length
+  };
+
+  res.json({ stats, attendances: todayAttendances });
+});
+
+app.get('/api/walas/students', requireRole('subadmin'), (req, res) => {
+  const userClass = req.session.user.class;
+  const userId = req.session.user.id;
+
+  const students = getAll(`
+    SELECT s.id, s.user_id, s.nis as nisn, s.name, s.class, s.photo, s.parent_id, s.created_at, u.username, p.name as parent_name
+    FROM students s
+    JOIN users u ON s.user_id = u.id
+    LEFT JOIN users p ON s.parent_id = p.id
+    WHERE s.class = ? AND s.user_id != ?
+    ORDER BY s.name
+  `, [userClass, userId]);
+
+  res.json({ students });
+});
+
+app.post('/api/walas/students', requireRole('subadmin'), (req, res) => {
+  const userClass = req.session.user.class;
+
+  if (!userClass) {
+    return res.status(400).json({ error: 'Akun wali kelas belum memiliki kelas yang ditugaskan. Hubungi admin.' });
+  }
+
+  const { nisn, name, username, password, parentUsername, parentPassword, parentName } = req.body;
+
+  if (!nisn || !name || !username || !password) {
+    return res.status(400).json({ error: 'Data siswa tidak lengkap' });
+  }
+
+  const existingNisn = getOne('SELECT id FROM students WHERE nis = ?', [nisn]);
+  if (existingNisn) {
+    return res.status(400).json({ error: 'NISN sudah digunakan, silakan gunakan NISN lain' });
+  }
+
+  const existingUsername = getOne('SELECT id FROM users WHERE username = ?', [username]);
+  if (existingUsername) {
+    return res.status(400).json({ error: 'Username sudah digunakan, silakan gunakan username lain' });
+  }
+
+  try {
+    const siswaHash = bcrypt.hashSync(password, 10);
+    const siswaUserId = run('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)', [username, siswaHash, name, 'siswa']);
+
+    let parentId = null;
+    if (parentUsername && parentPassword && parentName) {
+      const ortuHash = bcrypt.hashSync(parentPassword, 10);
+      parentId = run('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)', [parentUsername, ortuHash, parentName, 'ortu']);
+    }
+
+    run('INSERT INTO students (user_id, nis, name, class, parent_id) VALUES (?, ?, ?, ?, ?)', [siswaUserId, nisn, name, userClass, parentId]);
+
+    res.json({ success: true, message: 'Siswa berhasil ditambahkan' });
+  } catch (error) {
+    console.error('Add student error:', error.message);
+    res.status(400).json({ error: 'Gagal menambahkan siswa: ' + error.message });
+  }
+});
+
+app.delete('/api/walas/students/:id', requireRole('subadmin'), (req, res) => {
+  const studentId = parseInt(req.params.id);
+  const student = getOne('SELECT * FROM students WHERE id = ?', [studentId]);
+
+  if (!student) {
+    return res.status(404).json({ error: 'Siswa tidak ditemukan' });
+  }
+
+  const userClass = req.session.user.class;
+  if (student.class !== userClass) {
+    return res.status(403).json({ error: 'Anda tidak memiliki akses untuk menghapus siswa ini' });
+  }
+
+  run('DELETE FROM attendances WHERE student_id = ?', [studentId]);
+  run('DELETE FROM notifications WHERE student_id = ?', [studentId]);
+  run('DELETE FROM students WHERE id = ?', [studentId]);
+  run('DELETE FROM users WHERE id = ?', [student.user_id]);
+
+  res.json({ success: true, message: 'Siswa berhasil dihapus' });
+});
+
+// GET /api/walas/monthly-attendance - Rekap absensi bulanan per kelas
+app.get('/api/walas/monthly-attendance', requireRole('subadmin'), (req, res) => {
+  const userClass = req.session.user.class;
+  const userId = req.session.user.id;
+  const now = new Date();
+  const month = parseInt(req.query.month) || (now.getMonth() + 1);
+  const year = parseInt(req.query.year) || now.getFullYear();
+
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
+
+  const students = getAll('SELECT id, nis, name FROM students WHERE class = ? AND user_id != ? ORDER BY name', [userClass, userId]);
+
+  const attendances = getAll(`
+    SELECT a.*, s.name as student_name, s.nis as nisn
+    FROM attendances a
+    JOIN students s ON a.student_id = s.id
+    WHERE s.class = ? AND s.user_id != ? AND a.date BETWEEN ? AND ?
+    ORDER BY a.date ASC, s.name ASC
+  `, [userClass, userId, startDate, endDate]);
+
+  const stats = getOne(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN a.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+      SUM(CASE WHEN a.status = 'terlambat' THEN 1 ELSE 0 END) as terlambat,
+      SUM(CASE WHEN a.status = 'izin' THEN 1 ELSE 0 END) as izin,
+      SUM(CASE WHEN a.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+      SUM(CASE WHEN a.status = 'alpha' THEN 1 ELSE 0 END) as alpha
+    FROM attendances a
+    JOIN students s ON a.student_id = s.id
+    WHERE s.class = ? AND s.user_id != ? AND a.date BETWEEN ? AND ?
+  `, [userClass, userId, startDate, endDate]);
+
+  const monthName = getMonthName(month);
+  res.json({ month, year, monthName, className: userClass, students, attendances, stats });
+});
+
+app.post('/api/walas/reset', requireRole('subadmin'), (req, res) => {
+  const userClass = req.session.user.class;
+
+  try {
+    const students = getAll('SELECT id FROM students WHERE class = ?', [userClass]);
+    students.forEach(s => {
+      run('DELETE FROM attendances WHERE student_id = ?', [s.id]);
+      run('DELETE FROM notifications WHERE student_id = ?', [s.id]);
+    });
+    run('DELETE FROM students WHERE class = ?', [userClass]);
+
+    res.json({ success: true, message: 'Database kelas berhasil di-reset. Semua data siswa dan absensi telah dihapus.' });
+  } catch (error) {
+    console.error('Reset error:', error);
+    res.status(500).json({ error: 'Gagal reset database' });
+  }
+});
+
+// ========================================
+// START SERVER
+// ========================================
+
+async function start() {
+  try {
+    await initDatabase();
+    console.log('💾 Database siap');
+
+    server.listen(PORT, () => {
+      console.log('');
+      console.log('╔══════════════════════════════════════════╗');
+      console.log('║          🏫 ABSENKU SERVER              ║');
+      console.log('║    Aplikasi Absensi Siswa Real-time      ║');
+      console.log('╠══════════════════════════════════════════╣');
+      console.log(`║  🌐 Server: http://localhost:${PORT}        ║`);
+      console.log('║  📡 Socket.io: Aktif                     ║');
+      console.log('║  💾 Database: SQLite (sql.js)            ║');
+      console.log('╠══════════════════════════════════════════╣');
+      console.log('║  👤 Akun Test:                           ║');
+      console.log('║    Admin: admin / teti06                ║');
+      console.log('║    Siswa: 2024001 / siswa123             ║');
+      console.log('║    Ortu:  ortu1 / ortu123                ║');
+      console.log('╚══════════════════════════════════════════╝');
+      console.log('');
+    });
+  } catch (error) {
+    console.error('Gagal start server:', error);
+    process.exit(1);
+  }
+}
+
+start();

@@ -1,0 +1,9 @@
+node_modules/
+absenku.db
+absenku.db-journal
+uploads/photos/*.jpg
+uploads/photos/*.png
+*.log
+.env
+cookies*.txt
+.zcode/
