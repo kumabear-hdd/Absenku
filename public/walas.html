@@ -55,6 +55,7 @@
         <button class="btn btn-primary" onclick="showTab('attendance')" id="tabAttendance">📋 Absensi Hari Ini</button>
         <button class="btn btn-outline" onclick="showTab('students')" id="tabStudents">👥 Data Siswa</button>
         <button class="btn btn-outline" onclick="showTab('addStudent')" id="tabAddStudent">➕ Tambah Siswa</button>
+        <button class="btn btn-outline" onclick="showTab('uploadExcel')" id="tabUploadExcel">📤 Upload Excel</button>
         <button class="btn btn-outline" onclick="showTab('monthlyData')" id="tabMonthlyData">📊 Lihat Data</button>
         <button class="btn btn-success" onclick="unduhRekap()" id="btnUnduhLaporan" style="margin-left:auto;">💾 Unduh Rekap</button>
         <button class="btn btn-outline" onclick="switchBackToAdmin()" id="btnSwitchBack" style="border-color:var(--primary);color:var(--primary);">🔙 Kembali ke Admin</button>
@@ -176,6 +177,95 @@
         </div>
       </div>
 
+      <!-- Tab: Upload Excel -->
+      <div id="contentUploadExcel" class="card" style="display: none;">
+        <div class="card-header">
+          <h2>📤 Upload Data Siswa via Excel</h2>
+        </div>
+        <div class="card-body">
+          <div id="uploadExcelAlert" class="alert" style="display: none;"></div>
+
+          <!-- Penjelasan format -->
+          <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:16px;margin-bottom:20px;">
+            <h3 style="font-size:14px;margin-bottom:8px;">📋 Format Excel yang Diupload</h3>
+            <p style="font-size:13px;color:var(--gray-600);margin-bottom:12px;">
+              Pastikan file Excel memiliki header kolom seperti berikut. Data orang tua bersifat opsional.
+            </p>
+            <div class="table-responsive">
+              <table class="table" style="margin-bottom:0;">
+                <thead>
+                  <tr>
+                    <th>NISN</th>
+                    <th>Nama Siswa</th>
+                    <th>Username</th>
+                    <th>Password</th>
+                    <th>Nama Ortu</th>
+                    <th>Username Ortu</th>
+                    <th>Password Ortu</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>2024001</td>
+                    <td>Budi Santoso</td>
+                    <td>budi</td>
+                    <td>pass123</td>
+                    <td>Pak Santoso</td>
+                    <td>ortu1</td>
+                    <td>ortupass</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p style="font-size:12px;color:var(--gray-500);margin-top:8px;">
+              ⚠️ <strong>Wajib:</strong> NISN, Nama Siswa, Username, Password &nbsp;|&nbsp;
+              <strong>Opsional:</strong> Nama Ortu, Username Ortu, Password Ortu (jika diisi, ketiganya harus lengkap)
+            </p>
+          </div>
+
+          <!-- Download template -->
+          <button class="btn btn-outline" onclick="downloadTemplate()" style="margin-bottom:20px;">
+            📥 Download Template Excel
+          </button>
+
+          <!-- Upload form -->
+          <form id="uploadExcelForm">
+            <div style="border:2px dashed var(--gray-300);border-radius:12px;padding:30px;text-align:center;margin-bottom:16px;cursor:pointer;transition:all 0.2s;"
+                 id="dropZone" onclick="document.getElementById('excelFile').click()">
+              <div style="font-size:40px;margin-bottom:8px;">📁</div>
+              <p style="font-weight:600;margin-bottom:4px;">Klik untuk pilih file atau drag & drop</p>
+              <p style="font-size:13px;color:var(--gray-500);" id="fileLabel">Format: .xlsx atau .xls</p>
+              <input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none;" onchange="onFileSelect(this)">
+            </div>
+
+            <button type="submit" class="btn btn-success btn-lg" id="btnUploadExcel" disabled>
+              🚀 Upload & Proses
+            </button>
+          </form>
+
+          <!-- Hasil upload -->
+          <div id="uploadResults" style="display:none;margin-top:20px;">
+            <h3 style="font-size:14px;margin-bottom:12px;">📊 Hasil Upload</h3>
+            <div id="uploadResultsSummary" style="margin-bottom:12px;"></div>
+            <div id="uploadResultsErrors" style="display:none;">
+              <h4 style="font-size:13px;margin-bottom:8px;color:var(--danger);">❌ Baris Gagal:</h4>
+              <div class="table-responsive">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Baris Excel</th>
+                      <th>NISN</th>
+                      <th>Error</th>
+                    </tr>
+                  </thead>
+                  <tbody id="uploadErrorsTable"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Tab: Lihat Data (Rekap Bulanan) -->
       <div id="contentMonthlyData" class="card" style="display: none;">
         <div class="card-header">
@@ -242,6 +332,7 @@
   </div>
 
   <script src="/js/app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="/js/walas.js"></script>
 </body>
 </html>

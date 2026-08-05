@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
 const multer = require('multer');
+const XLSX = require('xlsx');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
@@ -90,6 +91,23 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error('Hanya file gambar yang diizinkan'), false);
+    }
+  }
+});
+
+// Upload Excel config (memory storage, tidak simpan ke disk)
+const uploadExcel = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
+    ];
+    if (allowed.includes(file.mimetype) || file.originalname.match(/\.(xlsx|xls)$/i)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Hanya file Excel (.xlsx/.xls) yang diizinkan'), false);
     }
   }
 });
@@ -890,6 +908,106 @@ app.post('/api/walas/students', requireRole('subadmin'), (req, res) => {
   } catch (error) {
     console.error('Add student error:', error.message);
     res.status(400).json({ error: 'Gagal menambahkan siswa: ' + error.message });
+  }
+});
+
+// Upload siswa via Excel
+app.post('/api/walas/students/upload', requireRole('subadmin'), uploadExcel.single('file'), (req, res) => {
+  const userClass = req.session.user.class;
+
+  if (!userClass) {
+    return res.status(400).json({ error: 'Akun wali kelas belum memiliki kelas yang ditugaskan. Hubungi admin.' });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({ error: 'File Excel tidak ditemukan' });
+  }
+
+  try {
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'File Excel kosong atau tidak ada data' });
+    }
+
+    const results = { success: 0, failed: 0, errors: [] };
+
+    rows.forEach((row, index) => {
+      const rowNum = index + 2; // baris Excel (header = baris 1)
+      const nisn = row['NISN'] ? String(row['NISN']).trim() : '';
+      const name = row['Nama Siswa'] ? String(row['Nama Siswa']).trim() : '';
+      const username = row['Username'] ? String(row['Username']).trim() : '';
+      const password = row['Password'] ? String(row['Password']).trim() : '';
+      const parentName = row['Nama Ortu'] ? String(row['Nama Ortu']).trim() : '';
+      const parentUsername = row['Username Ortu'] ? String(row['Username Ortu']).trim() : '';
+      const parentPassword = row['Password Ortu'] ? String(row['Password Ortu']).trim() : '';
+
+      // Validasi field wajib
+      if (!nisn || !name || !username || !password) {
+        results.failed++;
+        results.errors.push({ row: rowNum, nisn, error: 'NISN, Nama, Username, dan Password wajib diisi' });
+        return;
+      }
+
+      // Validasi data ortu harus lengkap jika salah satu diisi
+      if ((parentName || parentUsername || parentPassword) && (!parentName || !parentUsername || !parentPassword)) {
+        results.failed++;
+        results.errors.push({ row: rowNum, nisn, error: 'Data ortu harus lengkap (Nama, Username, Password)' });
+        return;
+      }
+
+      // Cek NISN duplikat
+      const existingNisn = getOne('SELECT id FROM students WHERE nis = ?', [nisn]);
+      if (existingNisn) {
+        results.failed++;
+        results.errors.push({ row: rowNum, nisn, error: 'NISN sudah terdaftar' });
+        return;
+      }
+
+      // Cek username duplikat
+      const existingUsername = getOne('SELECT id FROM users WHERE username = ?', [username]);
+      if (existingUsername) {
+        results.failed++;
+        results.errors.push({ row: rowNum, nisn, error: 'Username sudah digunakan' });
+        return;
+      }
+
+      try {
+        // Buat akun siswa
+        const siswaHash = bcrypt.hashSync(password, 10);
+        const siswaUserId = run('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)',
+          [username, siswaHash, name, 'siswa']);
+
+        // Buat akun ortu jika ada
+        let parentId = null;
+        if (parentName && parentUsername && parentPassword) {
+          const ortuHash = bcrypt.hashSync(parentPassword, 10);
+          parentId = run('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)',
+            [parentUsername, ortuHash, parentName, 'ortu']);
+        }
+
+        // Buat record siswa
+        run('INSERT INTO students (user_id, nis, name, class, parent_id) VALUES (?, ?, ?, ?, ?)',
+          [siswaUserId, nisn, name, userClass, parentId]);
+
+        results.success++;
+      } catch (err) {
+        results.failed++;
+        results.errors.push({ row: rowNum, nisn, error: err.message });
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `${results.success} siswa berhasil ditambahkan, ${results.failed} gagal`,
+      results
+    });
+
+  } catch (error) {
+    console.error('Upload Excel error:', error.message);
+    res.status(400).json({ error: 'Gagal memproses file Excel: ' + error.message });
   }
 });
 

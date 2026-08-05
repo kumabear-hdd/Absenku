@@ -182,11 +182,13 @@ function showTab(tab) {
   document.getElementById('contentAttendance').style.display = 'none';
   document.getElementById('contentStudents').style.display = 'none';
   document.getElementById('contentAddStudent').style.display = 'none';
+  document.getElementById('contentUploadExcel').style.display = 'none';
   document.getElementById('contentMonthlyData').style.display = 'none';
 
   document.getElementById('tabAttendance').className = 'btn btn-outline';
   document.getElementById('tabStudents').className = 'btn btn-outline';
   document.getElementById('tabAddStudent').className = 'btn btn-outline';
+  document.getElementById('tabUploadExcel').className = 'btn btn-outline';
   document.getElementById('tabMonthlyData').className = 'btn btn-outline';
 
   switch (tab) {
@@ -203,6 +205,10 @@ function showTab(tab) {
     case 'addStudent':
       document.getElementById('contentAddStudent').style.display = 'block';
       document.getElementById('tabAddStudent').className = 'btn btn-primary';
+      break;
+    case 'uploadExcel':
+      document.getElementById('contentUploadExcel').style.display = 'block';
+      document.getElementById('tabUploadExcel').className = 'btn btn-primary';
       break;
     case 'monthlyData':
       document.getElementById('contentMonthlyData').style.display = 'block';
@@ -301,6 +307,165 @@ async function resetDatabase() {
     alert('❌ Gagal reset: ' + error.message);
   }
 }
+
+// ========================================
+// UPLOAD EXCEL
+// ========================================
+
+function downloadTemplate() {
+  const headers = ['NISN', 'Nama Siswa', 'Username', 'Password', 'Nama Ortu', 'Username Ortu', 'Password Ortu'];
+  const example = ['2024001', 'Budi Santoso', 'budi', 'pass123', 'Pak Santoso', 'ortu1', 'ortupass'];
+  const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+
+  // Atur lebar kolom
+  ws['!cols'] = [
+    { wch: 12 }, { wch: 20 }, { wch: 15 }, { wch: 15 },
+    { wch: 20 }, { wch: 15 }, { wch: 15 }
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Data Siswa');
+  XLSX.writeFile(wb, 'Template_Data_Siswa.xlsx');
+}
+
+function onFileSelect(input) {
+  const label = document.getElementById('fileLabel');
+  const btn = document.getElementById('btnUploadExcel');
+  if (input.files.length > 0) {
+    label.textContent = '📎 ' + input.files[0].name;
+    label.style.color = 'var(--primary)';
+    label.style.fontWeight = '600';
+    btn.disabled = false;
+  } else {
+    label.textContent = 'Format: .xlsx atau .xls';
+    label.style.color = '';
+    label.style.fontWeight = '';
+    btn.disabled = true;
+  }
+}
+
+// Drag & drop
+document.addEventListener('DOMContentLoaded', () => {
+  const dropZone = document.getElementById('dropZone');
+  if (!dropZone) return;
+
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = 'var(--primary)';
+    dropZone.style.background = 'var(--primary-light, #f0f4ff)';
+  });
+
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.style.borderColor = '';
+    dropZone.style.background = '';
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = '';
+    dropZone.style.background = '';
+    const fileInput = document.getElementById('excelFile');
+    fileInput.files = e.dataTransfer.files;
+    onFileSelect(fileInput);
+  });
+});
+
+// Upload Excel form handler
+document.getElementById('uploadExcelForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const fileInput = document.getElementById('excelFile');
+  const alertBox = document.getElementById('uploadExcelAlert');
+  const resultsDiv = document.getElementById('uploadResults');
+  const btn = document.getElementById('btnUploadExcel');
+
+  if (!fileInput.files.length) {
+    alertBox.className = 'alert alert-error';
+    alertBox.textContent = '❌ Pilih file Excel terlebih dahulu';
+    alertBox.style.display = 'flex';
+    setTimeout(() => { alertBox.style.display = 'none'; }, 3000);
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Memproses...';
+
+  try {
+    const res = await fetch('/api/walas/students/upload', {
+      method: 'POST',
+      credentials: 'include',
+      body: formData
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Gagal upload');
+    }
+
+    // Tampilkan alert sukses
+    alertBox.className = 'alert alert-success';
+    alertBox.textContent = '✅ ' + data.message;
+    alertBox.style.display = 'flex';
+
+    // Tampilkan hasil detail
+    resultsDiv.style.display = 'block';
+    document.getElementById('uploadResultsSummary').innerHTML = `
+      <div style="display:flex;gap:12px;">
+        <div style="background:var(--success-light, #dcfce7);padding:12px 20px;border-radius:8px;flex:1;text-align:center;">
+          <div style="font-size:24px;font-weight:800;color:var(--success, #166534);">${data.results.success}</div>
+          <div style="font-size:12px;color:var(--gray-600);">Berhasil</div>
+        </div>
+        <div style="background:var(--danger-light, #fee2e2);padding:12px 20px;border-radius:8px;flex:1;text-align:center;">
+          <div style="font-size:24px;font-weight:800;color:var(--danger, #991b1b);">${data.results.failed}</div>
+          <div style="font-size:12px;color:var(--gray-600);">Gagal</div>
+        </div>
+      </div>
+    `;
+
+    // Tampilkan tabel error jika ada
+    const errorsDiv = document.getElementById('uploadResultsErrors');
+    if (data.results.errors && data.results.errors.length > 0) {
+      errorsDiv.style.display = 'block';
+      document.getElementById('uploadErrorsTable').innerHTML = data.results.errors.map(err => `
+        <tr>
+          <td>${err.row}</td>
+          <td>${err.nisn || '-'}</td>
+          <td style="color:var(--danger);">${err.error}</td>
+        </tr>
+      `).join('');
+    } else {
+      errorsDiv.style.display = 'none';
+    }
+
+    // Reset form
+    fileInput.value = '';
+    document.getElementById('fileLabel').textContent = 'Format: .xlsx atau .xls';
+    document.getElementById('fileLabel').style.color = '';
+    document.getElementById('fileLabel').style.fontWeight = '';
+
+    // Refresh data
+    setTimeout(() => {
+      loadStudents();
+      loadDashboard();
+    }, 500);
+
+    setTimeout(() => { alertBox.style.display = 'none'; }, 5000);
+
+  } catch (error) {
+    alertBox.className = 'alert alert-error';
+    alertBox.textContent = '❌ ' + error.message;
+    alertBox.style.display = 'flex';
+    resultsDiv.style.display = 'none';
+    setTimeout(() => { alertBox.style.display = 'none'; }, 5000);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🚀 Upload & Proses';
+  }
+});
 
 // ========================================
 // REKAP ABSENSI BULANAN
