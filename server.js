@@ -926,23 +926,45 @@ app.post('/api/walas/students/upload', requireRole('subadmin'), uploadExcel.sing
   try {
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
-    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { raw: false, defval: '' });
 
     if (rows.length === 0) {
       return res.status(400).json({ error: 'File Excel kosong atau tidak ada data' });
+    }
+
+    // Ambil header dari baris pertama untuk debug
+    const headers = Object.keys(rows[0]);
+    console.log('📋 Excel headers:', headers);
+    console.log('📋 Baris pertama:', rows[0]);
+
+    // Mapping header: toleransi spasi & variasi nama kolom
+    function getCol(row, ...keys) {
+      for (const k of keys) {
+        // Cek exact match
+        if (row[k] !== undefined && row[k] !== '') return String(row[k]).trim();
+        // Cek case-insensitive & tanpa spasi berlebih
+        const normK = k.toLowerCase().replace(/\s+/g, ' ');
+        for (const rowK of Object.keys(row)) {
+          if (rowK.toLowerCase().replace(/\s+/g, ' ') === normK) {
+            const val = row[rowK];
+            if (val !== undefined && val !== '') return String(val).trim();
+          }
+        }
+      }
+      return '';
     }
 
     const results = { success: 0, failed: 0, errors: [] };
 
     rows.forEach((row, index) => {
       const rowNum = index + 2; // baris Excel (header = baris 1)
-      const nisn = row['NISN'] ? String(row['NISN']).trim() : '';
-      const name = row['Nama Siswa'] ? String(row['Nama Siswa']).trim() : '';
-      const username = row['Username'] ? String(row['Username']).trim() : '';
-      const password = row['Password'] ? String(row['Password']).trim() : '';
-      const parentName = row['Nama Ortu'] ? String(row['Nama Ortu']).trim() : '';
-      const parentUsername = row['Username Ortu'] ? String(row['Username Ortu']).trim() : '';
-      const parentPassword = row['Password Ortu'] ? String(row['Password Ortu']).trim() : '';
+      const nisn = getCol(row, 'NISN', 'nisn');
+      const name = getCol(row, 'Nama Siswa', 'Nama siswa', 'nama siswa', 'Nama');
+      const username = getCol(row, 'Username', 'username');
+      const password = getCol(row, 'Password', 'password');
+      const parentName = getCol(row, 'Nama Ortu', 'Nama ortu', 'nama ortu');
+      const parentUsername = getCol(row, 'Username Ortu', 'Username ortu', 'username ortu');
+      const parentPassword = getCol(row, 'Password Ortu', 'Password ortu', 'password ortu');
 
       // Validasi field wajib
       if (!nisn || !name || !username || !password) {
@@ -1002,7 +1024,8 @@ app.post('/api/walas/students/upload', requireRole('subadmin'), uploadExcel.sing
     res.json({
       success: true,
       message: `${results.success} siswa berhasil ditambahkan, ${results.failed} gagal`,
-      results
+      results,
+      debug: { headers, totalRows: rows.length }
     });
 
   } catch (error) {
